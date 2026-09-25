@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>本村友一 — Motion Showreel 2026</title>
+<style>
+  @font-face { font-family: 'Unbounded'; font-weight: 400; src: url(fonts/Unbounded-400.ttf); }
+  @font-face { font-family: 'Unbounded'; font-weight: 800; src: url(fonts/Unbounded-800.ttf); }
+  @font-face { font-family: 'Dela Gothic One'; font-weight: 400; src: url(fonts/DelaGothicOne-400.ttf); }
+  @font-face { font-family: 'Noto Sans JP'; font-weight: 700; src: url(fonts/NotoSansJP-700.ttf); }
+  @font-face { font-family: 'JetBrains Mono'; font-weight: 500; src: url(fonts/JetBrainsMono-500.ttf); }
+  html, body { margin: 0; height: 100%; background: #0A0A0C; }
+  body { display: grid; place-items: center; }
+  canvas { width: min(100vw, 177.78vh); aspect-ratio: 16 / 9; display: block; }
+  button { position: fixed; inset: 0; margin: auto; width: 180px; height: 56px; border: 0; border-radius: 28px;
+    background: #FF3B1F; color: #0A0A0C; font: 700 16px 'JetBrains Mono', monospace; letter-spacing: 4px; cursor: pointer; }
+  body.render button { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="play">▶ PLAY</button>
+<audio id="a" src="showreel-audio.m4a" preload="auto"></audio>
+<script src="reel.js"></script>
+<script>
+  const render = new URLSearchParams(location.search).has('render');
+  if (render) document.body.classList.add('render');
+  window.READY = REEL.init(document.getElementById('c')).then(() => REEL.renderFrame(0, 1));
+  if (!render) {
+    const btn = document.getElementById('play'), au = document.getElementById('a');
+    let start = 0, useAudio = true;
+    const loop = () => {
+      const t = useAudio && !au.paused ? au.currentTime : (performance.now() - start) / 1000;
+      if (t >= REEL.DUR) { btn.style.display = ''; REEL.renderFrame(REEL.DUR - 1 / 60, 1); return; }
+      REEL.renderFrame(t, 1); requestAnimationFrame(loop);
+    };
+    btn.onclick = async () => {
+      await window.READY; btn.style.display = 'none';
+      au.currentTime = 0; start = performance.now();
+      try { await au.play(); } catch { useAudio = false; }
+      loop();
+    };
+  }
+</script>
+</body>
+</html>
