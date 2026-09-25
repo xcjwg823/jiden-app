@@ -1,24 +1,25 @@
-# 本村友一 / TOMOKAZU MOTOMURA — Motion Showreel 2026
+# Tomokazu Motomura — Showreel 2026
 
-15秒 / 1920×1080 / 60fps / 120BPM のモーショングラフィックス・ショーリール。
+救急医療・ドクターヘリ・災害医療を伝える 15秒 / 1920×1080 / 60fps のショーリール。
 
 - `showreel.mp4` — 完成動画（H.264 + AAC）
 - `index.html` + `reel.js` — アニメーション本体。`python3 -m http.server` で配信し、ブラウザで開いて ▶ PLAY でリアルタイム再生
-- `img/` — 使用素材（ドクターヘリ写真、ポートレート（絵画／デ・ステイル）、Motomura creative ポスター3点）
+- `img/` — 使用素材（ドクターヘリ写真、EMERGENCY レーン、HOKUSOH HEMS、ポートレート、Motomura creative ポスター、Hokusoh Shock & Trauma Center）
 - `audio.py` — サウンドトラックを数式で合成（全ヒットが映像のカットに同期）
 - `render.mjs` — Playwright で1フレームずつ描画し、4サンプルのモーションブラーを掛けて ffmpeg へ出力
 
 ## 構成
 | 時間 | シーン |
 |---|---|
-| 0.0–1.5 | IGNITION — 点 → 予備動作 → 線 → 画面を満たす |
-| 1.5–3.5 | KINETIC TYPE — MOTION / DESIGN、ドクターヘリの実写に「動きで、伝える。」 |
-| 3.5–5.5 | EASING / MORPH — ベジェ曲線と連動する図形モーフ |
-| 5.5–7.5 | 3D / PARTICLES — 9,216点の球体が爆発し、ポートレートのモザイクに再集結して写真へ |
-| 7.5–9.0 | PORTRAIT — 絵画がタイルごとに裏返りデ・ステイル版へ |
-| 9.0–11.5 | KEY VISUAL — Motomura creative ポスターがビートごとに飛び込み、扇状に展開 |
+| 0.0–1.5 | VITALS — 心電図が走り、最後のスパイクが画面を赤に染める |
+| 1.5–3.5 | EMERGENCY / MEDICINE → EMERGENCY レーンから空のドクターヘリへティルトアップ「一秒でも早く、医療を届ける。」 |
+| 3.5–5.0 | THREE PILLARS — 回転する3D十字と、救急医療／ドクターヘリ／災害医療 |
+| 5.0–7.0 | DOCTOR-HELI — JA6790 → ANYTIME. → ANYWHERE. → HOKUSOH HEMS |
+| 7.0–8.5 | ON THE FRONT LINE — 粒子の球体が弾け、ポートレートに再集結 |
+| 8.5–10.5 | DISASTER MEDICINE — ポスター3点がビートごとに飛び込み扇状に展開 |
+| 10.5–11.5 | TEAM — Hokusoh Shock & Trauma Center「チームで、命をつなぐ。」 |
 | 11.5–12.0 | REWIND — RGBずれのストロボ・リキャップ |
-| 12.0–15.0 | END CARD — 氏名と落款（はんこ）が押される |
+| 12.0–15.0 | END CARD — Tomokazu Motomura / Flight Doctor / Emergency Physician と落款 |
 
 ## 再レンダリング
 ```sh

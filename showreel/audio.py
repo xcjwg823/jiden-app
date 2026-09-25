@@ -114,12 +114,12 @@ midi = lambda m: 440 * 2 ** ((m - 69) / 12)
 
 # ---------- arrangement ----------
 B = 0.5  # beat
-# (0) ignition
-add(bell(midi(88)), 0.12, 0.35, verb=0.5)
-add(whoosh(0.12, True, 800, 4000), 0.38, 0.25)
-add(whoosh(0.45, True, 1500, 12000), 0.5, 0.45, pan=0.2, verb=0.2)
-for i, x in enumerate(range(0, 17)):
-    add(tick(), 0.72 + x * 0.012, 0.35, pan=(i % 2) * 0.6 - 0.3)
+# (0) vitals: ECG monitor beeps on each R-wave, then a long alarm tone into the drop
+def beep(d=0.09, f=1000):
+    t = t_(d); return np.sin(2 * np.pi * f * t) * np.minimum(1, t / 0.004) * np.minimum(1, (d - t) / 0.01)
+add(bell(midi(88)), 0.05, 0.2, verb=0.5)
+for x in (0.5, 1.0): add(beep(), x, 0.35, verb=0.3)
+add(beep(0.24, 1000), 1.27, 0.4, verb=0.5)
 add(riser(0.7), 0.8, 0.6, verb=0.3)
 
 # groove: 1.5 → 11.5
@@ -146,30 +146,34 @@ for i in range(4): add(bell(midi(79 + [0, 3, 7, 12][i])), 3.0 + i * 0.055, 0.14,
 rotor = lp(noise(1.0), 300) * (0.5 + 0.5 * np.sin(2 * np.pi * 13 * t_(1.0))) ** 4 * np.minimum(1, t_(1.0) / 0.05)
 add(rotor, 2.5, 0.9, verb=0.2)
 add(whoosh(0.3, True), 3.22, 0.5)
-# (2) morph pops
-for i, x in enumerate((3.5, 3.75, 4.25, 4.75)):
-    add(bell(midi([81, 84, 88, 91][i]), 0.5), x, 0.3, pan=0.3, verb=0.5)
-    add(whoosh(0.4, False, 300, 5000), x, 0.22, pan=0.3)
-add(riser(0.3), 5.2, 0.5)
-# (3) 3D
-add(sub_drop(0.8), 5.5, 0.5)
-for x in (6.0, 6.5): add(bell(midi(64), 0.4), x, 0.2, verb=0.6)
-add(noise(1.0) * env(SR, 0.001, 0.25), 6.75, 0.5, verb=0.6)
-add(sub_drop(1.0), 6.75, 0.5)
-add(whoosh(0.45, True, 500, 9000)[::-1], 6.9, 0.45, verb=0.3)
-# (4) portrait: shimmer as the mosaic resolves, ticks as tiles flip
-add(whoosh(0.4, True, 2000, 14000), 7.1, 0.3, verb=0.5)
-for i, m in enumerate((76, 79, 84, 88)): add(bell(midi(m), 0.6), 7.5 + i * 0.04, 0.12, pan=-0.4 + i * 0.27, verb=0.7)
-for i in range(40):
-    add(tick(), 8.0 + (i / 40) ** 1.4 * 0.68, 0.3, pan=np.sin(i * 1.7) * 0.7)
-add(whoosh(0.28, True), 8.72, 0.45)
-# (5) key visuals: a slam per poster, then the fan-out
-for i, x in enumerate((9.0, 9.5, 10.0)):
+# (2) three pillars: a hit + spin per pillar, riser into the heli montage
+for i, x in enumerate((3.5, 4.0, 4.5)):
+    add(bell(midi([81, 84, 88][i]), 0.5), x, 0.3, pan=(-0.4, 0.4, -0.4)[i], verb=0.5)
+    add(whoosh(0.42, False, 300, 5000), x, 0.3, pan=(-0.4, 0.4, -0.4)[i])
+add(riser(0.3), 4.7, 0.55)
+# (3) doctor-heli montage: impact, rotor bed, a whip per cut
+add(sub_drop(0.8), 5.0, 0.55)
+add(kick(0.4, 160, 45, 0.8), 5.0, 0.6)
+rotor2 = lp(noise(2.0), 260) * (0.5 + 0.5 * np.sin(2 * np.pi * 12 * t_(2.0))) ** 4
+add(rotor2 * np.minimum(1, (2.0 - t_(2.0)) / 0.2), 5.0, 1.0, verb=0.2)
+for i, x in enumerate((5.5, 6.0, 6.5)): add(whoosh(0.2, False, 700, 11000), x - 0.03, 0.45, pan=(-0.6, 0.6, -0.6)[i])
+# (4) front line: globe, burst, portrait resolves
+add(sub_drop(0.8), 7.0, 0.45)
+add(bell(midi(64), 0.4), 7.4, 0.2, verb=0.6)
+add(noise(1.0) * env(SR, 0.001, 0.25), 7.75, 0.5, verb=0.6)
+add(sub_drop(1.0), 7.75, 0.5)
+add(whoosh(0.3, True, 2000, 14000), 7.8, 0.3, verb=0.5)
+for i, m in enumerate((76, 79, 84, 88)): add(bell(midi(m), 0.6), 8.08 + i * 0.04, 0.12, pan=-0.4 + i * 0.27, verb=0.7)
+add(whoosh(0.2, True), 8.32, 0.4)
+# (5) disaster medicine: a slam per poster, then the fan-out and push-in
+for i, x in enumerate((8.5, 9.0, 9.5)):
     add(whoosh(0.2, False, 600, 10000), x - 0.05, 0.45, pan=(0, 0.6, -0.6)[i])
     add(kick(0.3, 110, 55, 0.2), x + 0.02, 0.5)
     for m in chords[i % 4][1]: add(pluck(midi(m), 0.3, 5000), x, 0.12, verb=0.4)
-for i in range(3): add(whoosh(0.25, False, 500, 8000), 10.5 + i * 0.06, 0.3, pan=(-0.6, 0.6, 0)[i])
-add(riser(0.45), 11.05, 0.5)
+for i in range(3): add(whoosh(0.25, False, 500, 8000), 10.0 + i * 0.06, 0.3, pan=(-0.6, 0.6, 0)[i])
+add(riser(0.4), 10.1, 0.5)
+# (6) team: warm chord as the sleeve reveals
+for m in (69, 72, 76, 81): add(bell(midi(m), 0.9), 10.5, 0.1, verb=0.9)
 # (6) rewind: snare roll + riser
 for i in range(16):
     x = 11.5 + i * 0.5 / 16

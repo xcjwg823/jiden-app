@@ -104,7 +104,7 @@ function scramble(str, p, seed = 1) {
 }
 
 /* ---------------- global camera shake ---------------- */
-const IMPACTS = [[1.5, 7], [6.75, 12], [12.0, 26], [13.5, 14]];
+const IMPACTS = [[1.5, 7], [5.0, 9], [7.75, 12], [12.0, 26], [13.5, 14]];
 function shake(t) {
   let x = 0, y = 0;
   for (const [b, a] of IMPACTS) {
@@ -116,60 +116,71 @@ function shake(t) {
 }
 
 /* ============================================================
-   SCENE 1 — IGNITION (0.0 – 1.5)
+   SCENE 1 — VITALS: ECG trace → flatline spike floods red (0.0 – 1.5)
    ============================================================ */
+const gauss = (x, w) => Math.exp(-(x * x) / (2 * w * w));
+function ecg(t) {
+  let v = 0;
+  for (const [b, amp] of [[0.5, 1], [1.0, 1], [1.27, 3.2]]) {
+    const u = t - b;
+    v += amp * (0.12 * gauss(u + 0.12, 0.022) - 0.16 * gauss(u + 0.022, 0.007) + gauss(u, 0.0095)
+      - 0.28 * gauss(u - 0.022, 0.009) + (amp > 1 ? 0 : 0.2 * gauss(u - 0.19, 0.035)));
+  }
+  return v;
+}
+const ecgX = t => lerp(150, 1770, (t - 0.18) / 1.12);
 function s1(ctx, t) {
   bg(ctx, C.bg);
-  const cx = W / 2, cy = H / 2;
-  ctx.fillStyle = C.red;
-  if (t < 0.5) {
-    const pop = E.outBack(prog(t, 0.12, 0.40), 3);
-    const a = E.ioC(prog(t, 0.36, 0.5));
-    const r = 18 * pop;
-    ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.4 * a, r * (1 + 0.55 * a), r * (1 - 0.4 * a), 0, 0, TAU); ctx.fill();
-    // pop ring
-    const rp = prog(t, 0.14, 0.45);
-    if (rp > 0 && rp < 1) {
-      ctx.strokeStyle = alpha(C.red, 1 - rp); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx, cy, 18 + E.outExpo(rp) * 90, 0, TAU); ctx.stroke();
-    }
+  const cy = 600, A = 250;
+  // monitor grid
+  const ga = 0.05 * E.outC(prog(t, 0.05, 0.4)) * (1 - prog(t, 1.2, 1.35));
+  ctx.fillStyle = alpha(C.cream, ga);
+  for (let x = 150; x <= 1770; x += 45) ctx.fillRect(x, 260, 1, 620);
+  for (let y = 260; y <= 880; y += 45) ctx.fillRect(150, y, 1620, 1);
+  if (t < 0.18) {
+    const pop = E.outBack(prog(t, 0.05, 0.18), 3);
+    ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(150, cy, 12 * pop, 0, TAU); ctx.fill();
     return;
   }
-  const half = lerp(18, W / 2 + 60, E.outExpo(prog(t, 0.5, 0.95)));
-  let th = lerp(26, 6, E.outExpo(prog(t, 0.5, 0.72)));
-  const grow = E.inExpo(prog(t, 1.12, 1.5));
-  th = lerp(th, H + 60, grow);
-  // anti stretch overshoot on vertical
-  ctx.fillRect(cx - half, cy - th / 2, half * 2, th);
-
-  const fade = 1 - prog(t, 1.08, 1.22);
-  if (fade <= 0) return;
-  // ruler ticks
-  ctx.fillStyle = alpha(C.cream, 0.7 * fade);
-  for (let i = -16; i <= 16; i++) {
-    const d = Math.abs(i);
-    const p = E.outBack(prog(t, 0.72 + d * 0.012, 0.72 + d * 0.012 + 0.2), 2.5);
-    if (p <= 0) continue;
-    const big = i % 4 === 0;
-    const h = (big ? 26 : 12) * p;
-    ctx.fillRect(cx + i * 56 - 1, cy + 18, 2, h);
+  // trace with glow + fading tail
+  const tEnd = Math.min(t, 1.3);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const [lw, a] of [[16, 0.12], [7, 0.25], [3.5, 1]]) {
+    ctx.strokeStyle = alpha(C.red, a); ctx.lineWidth = lw;
+    ctx.beginPath();
+    for (let s = 0.18; s <= tEnd; s += 1 / 400) {
+      const x = ecgX(s), y = cy - ecg(s) * A;
+      s === 0.18 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.lineTo(ecgX(tEnd), cy - ecg(tEnd) * A); ctx.stroke();
   }
-  font(ctx, 500, 18, F.mono); ctx.textAlign = 'center';
-  for (let i = -16; i <= 16; i += 4) {
-    const d = Math.abs(i);
-    if (t < 0.78 + d * 0.012) continue;
-    ctx.fillText(String((i + 16) * 30 / 4 | 0).padStart(3, '0'), cx + i * 56, cy + 70);
+  ctx.lineCap = 'butt';
+  const cx = ecgX(tEnd), cyy = cy - ecg(tEnd) * A;
+  ctx.fillStyle = C.cream; ctx.beginPath(); ctx.arc(cx, cyy, 7, 0, TAU); ctx.fill();
+  // readouts
+  const ra = 1 - prog(t, 1.18, 1.3);
+  if (ra > 0) {
+    ctx.globalAlpha = ra;
+    font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.cream, 0.6);
+    ctx.fillText('ECG  II', 150, 230);
+    ctx.textAlign = 'right';
+    ctx.fillText('HR', 1600, 230); ctx.fillText('SpO₂', 1770, 230);
+    font(ctx, 800, 64, F.disp);
+    ctx.fillStyle = C.red; ctx.fillText(t < 0.5 ? '---' : '120', 1600, 170 + 130);
+    ctx.fillStyle = C.cream; ctx.fillText(t < 0.5 ? '--' : '98', 1770, 300);
+    ctx.textAlign = 'left';
+    font(ctx, 500, 26, F.mono); ctx.fillStyle = C.cream; ctx.letterSpacing = '12px';
+    ctx.fillText(scramble('EVERY SECOND COUNTS', prog(t, 0.55, 1.05), 3), 150, 960);
+    ctx.letterSpacing = '0px';
+    ctx.globalAlpha = 1;
   }
-  ctx.fillStyle = alpha(C.cream, fade);
-  font(ctx, 500, 30, F.mono);
-  ctx.letterSpacing = '14px';
-  ctx.fillText(scramble('MOTION  SHOWREEL  2026', prog(t, 0.78, 1.18), 3), cx + 7, cy - 48);
-  ctx.letterSpacing = '0px';
-  ctx.textAlign = 'left';
+  // the final spike floods the frame
+  const g = E.inExpo(prog(t, 1.27, 1.5));
+  if (g > 0) { ctx.fillStyle = C.red; const w = lerp(6, 3800, g); ctx.fillRect(cx - w / 2, -100, w, H + 200); }
 }
 
 /* ============================================================
-   SCENE 2 — KINETIC TYPE (1.5 – 3.5)
+   SCENE 2 — EMERGENCY / MEDICINE + road tilt-up (1.5 – 3.5)
    ============================================================ */
 function wordReveal(ctx, str, size, baseline, t0, t, col, sp = 0) {
   font(ctx, 800, size, F.disp);
@@ -179,14 +190,12 @@ function wordReveal(ctx, str, size, baseline, t0, t, col, sp = 0) {
   ctx.beginPath(); ctx.rect(0, baseline - size * 0.95, W, size * 1.1); ctx.clip();
   ctx.fillStyle = col;
   L.chars.forEach((c, i) => {
-    const p = E.outExpo(prog(t, t0 + i * 0.035, t0 + i * 0.035 + 0.55));
+    const p = E.outExpo(prog(t, t0 + i * 0.03, t0 + i * 0.03 + 0.5));
     const y = baseline + (1 - p) * size * 1.05;
-    const skew = (1 - p) * 0.25;
-    ctx.save(); ctx.translate(x0 + c.x, y); ctx.transform(1, 0, -skew, 1, 0, 0);
+    ctx.save(); ctx.translate(x0 + c.x, y); ctx.transform(1, 0, -(1 - p) * 0.25, 1, 0, 0);
     ctx.fillText(c.ch, 0, 0); ctx.restore();
   });
   ctx.restore();
-  return { x0, width: L.width };
 }
 function marquee(ctx, str, size, y, speed, t, col, a) {
   font(ctx, 800, size, F.disp);
@@ -199,205 +208,159 @@ function s2(ctx, t) {
   if (t < 2.5) {
     bg(ctx, C.red);
     const ma = E.outC(prog(t, 1.7, 2.1));
-    marquee(ctx, 'MOTION DESIGN — MOTION DESIGN — ', 64, 150, -380, t, C.ink, 0.55 * ma);
-    marquee(ctx, 'KINETIC TYPOGRAPHY — KINETIC TYPOGRAPHY — ', 64, 1000, 380, t, C.ink, 0.55 * ma);
-    const size = fitSize(ctx, 'MOTION', 800, F.disp, 1640, 300);
-    wordReveal(ctx, 'MOTION', size, 520, 1.5, t, C.ink);
-    wordReveal(ctx, 'DESIGN', size, 520 + size * 0.95, 2.0, t, C.cream);
-    // hairline with frame marker
+    marquee(ctx, 'ANYTIME ANYWHERE — ', 64, 150, -380, t, C.ink, 0.55 * ma);
+    marquee(ctx, 'SHOCK & TRAUMA — EMERGENCY — ', 64, 1000, 380, t, C.ink, 0.55 * ma);
+    const size = fitSize(ctx, 'EMERGENCY', 800, F.disp, 1680, 300);
+    wordReveal(ctx, 'EMERGENCY', size, 500, 1.5, t, C.ink);
+    wordReveal(ctx, 'MEDICINE', size, 500 + size * 1.02, 2.0, t, C.cream);
     const lp = E.outExpo(prog(t, 1.62, 2.1));
-    ctx.fillStyle = C.ink;
-    ctx.fillRect(W / 2 - 820 * lp, 555, 1640 * lp, 3);
+    ctx.fillStyle = C.ink; ctx.fillRect(W / 2 - 840 * lp, 540, 1680 * lp, 3);
     return;
   }
   bg(ctx, C.bg);
-  // Doctor-Heli footage: ken-burns, helicopter drifts across frame
+  // road photo: tilt up from the EMERGENCY lane to the Doctor-Heli in the sky
   {
-    const k = prog(t, 2.5, 3.5);
-    const s = 1.95 + 0.14 * E.outC(k) + 0.1 * (1 - E.outExpo(prog(t, 2.5, 2.8)));
-    const iw = IMG.heli.width * s, ih = IMG.heli.height * s;
-    const hx = lerp(1180, 1300, k), hy = lerp(470, 420, k);
-    const ox = clamp(hx - 655 * s, W - iw, 0), oy = clamp(hy - 290 * s, H - ih, 0);
-    ctx.drawImage(IMG.heli, ox, oy, iw, ih);
-    const gr = ctx.createLinearGradient(0, 0, W, 0);
-    gr.addColorStop(0, 'rgba(243,238,227,0.35)'); gr.addColorStop(0.6, 'rgba(243,238,227,0)');
-    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+    const img = IMG.road, s = W / img.width * (1.06 - 0.06 * E.outC(prog(t, 2.5, 3.5)));
+    const e = E.ioC(prog(t, 2.5, 3.3));
+    const oy = lerp(540 - 1835 * s, 300 - 837 * s, e);
+    ctx.drawImage(img, (W - img.width * s) / 2, oy, img.width * s, img.height * s);
   }
   const out = E.inExpo(prog(t, 3.25, 3.5));
   ctx.save(); ctx.translate(0, -out * 260);
-  const size = 205;
+  const size = 150;
   font(ctx, 400, size, F.jp);
-  const lines = [['動きで、', 140, 440, 2.5], ['伝える。', 240, 720, 3.0]];
-  for (const [str, x0, base, t0] of lines) {
-    const L = layout(ctx, str, 6);
+  const lines = [['一秒でも早く、', 1800, 520, 2.6], ['医療を届ける。', 1800, 720, 3.0]];
+  for (const [str, xr, base, t0] of lines) {
+    const L = layout(ctx, str, 4), x0 = xr - L.width;
     L.chars.forEach((c, i) => {
-      const p = prog(t, t0 + i * 0.055, t0 + i * 0.055 + 0.4);
+      const p = prog(t, t0 + i * 0.04, t0 + i * 0.04 + 0.35);
       if (p <= 0) return;
-      const e = E.outExpo(p);
-      const s = lerp(1.9, 1, e);
+      const e = E.outExpo(p), s = lerp(1.9, 1, e);
       ctx.save();
       ctx.translate(x0 + c.x + c.w / 2, base - size * 0.36);
       ctx.scale(s, s); ctx.rotate((1 - e) * -0.35);
-      const b = (1 - e) * 22;
-      if (b > 0.5) ctx.filter = `blur(${b.toFixed(1)}px)`;
+      const b = (1 - e) * 20; if (b > 0.5) ctx.filter = `blur(${b.toFixed(1)}px)`;
       ctx.globalAlpha = clamp(p * 4);
       ctx.fillStyle = c.ch === '。' || c.ch === '、' ? C.red : C.ink;
-      ctx.textAlign = 'center';
-      ctx.fillText(c.ch, 0, size * 0.36);
+      ctx.textAlign = 'center'; ctx.fillText(c.ch, 0, size * 0.36);
       ctx.restore();
     });
   }
-  // red underline
   const up = E.outExpo(prog(t, 3.05, 3.4));
-  ctx.fillStyle = C.red; ctx.fillRect(240, 762, 880 * up, 8);
-  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.ink, 0.75 * E.outC(prog(t, 2.6, 2.9)));
-  ctx.fillText('— COMMUNICATE THROUGH MOTION', 144, 505);
-  ctx.fillText('— DOCTOR-HELI', 1280, 700);
+  ctx.fillStyle = C.red; ctx.fillRect(1800 - 1000 * up, 760, 1000 * up, 8);
+  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.ink, 0.8 * E.outC(prog(t, 2.7, 3.0)));
+  ctx.textAlign = 'right'; ctx.fillText('EVERY SECOND COUNTS —', 1800, 360); ctx.textAlign = 'left';
   ctx.restore();
-  // cream bars wipe into scene 3
-  ctx.fillStyle = C.cream;
-  const n = 7, bw = W / n;
-  for (let i = 0; i < n; i++) {
+  // dark bars wipe into the 3D scene
+  ctx.fillStyle = C.ink;
+  for (let i = 0; i < 7; i++) {
     const p = E.ioExpo(prog(t, 3.27 + i * 0.012, 3.27 + i * 0.012 + 0.16));
-    if (p <= 0) continue;
-    ctx.fillRect(i * bw - 1, H - (H + 20) * p, bw + 2, (H + 20) * p + 200);
+    if (p > 0) ctx.fillRect(i * W / 7 - 1, H - (H + 20) * p, W / 7 + 2, (H + 20) * p + 200);
   }
 }
 
 /* ============================================================
-   SCENE 3 — EASING / MORPH (3.5 – 5.5)
+   SCENE 3 — THREE PILLARS: glossy 3D medical cross (3.5 – 5.0)
    ============================================================ */
-const NA = 360;
-function polyRadii(verts) {
-  const out = new Float32Array(NA);
-  for (let k = 0; k < NA; k++) {
-    const a = k / NA * TAU - Math.PI / 2;
-    const dx = Math.cos(a), dy = Math.sin(a);
-    let best = 1e9;
-    for (let i = 0; i < verts.length; i++) {
-      const [px, py] = verts[i], [qx, qy] = verts[(i + 1) % verts.length];
-      const ex = qx - px, ey = qy - py;
-      const den = dx * ey - dy * ex;
-      if (Math.abs(den) < 1e-9) continue;
-      const s = (px * ey - py * ex) / den;
-      const u = (px * dy - py * dx) / den;
-      if (s > 0 && u >= -1e-6 && u <= 1 + 1e-6) best = Math.min(best, s);
-    }
-    out[k] = best;
+const CROSS = (() => {
+  const a = 0.34, l = 1, d = 0.3;
+  const o = [[-a, -l], [a, -l], [a, -a], [l, -a], [l, a], [a, a], [a, l], [-a, l], [-a, a], [-l, a], [-l, -a], [-a, -a]];
+  const n = o.length, faces = [];
+  faces.push({ v: o.map(([x, y]) => [x, y, -d]), n: [0, 0, -1], front: true });
+  faces.push({ v: o.map(([x, y]) => [x, y, d]).reverse(), n: [0, 0, 1], front: true });
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = o[i], [x2, y2] = o[(i + 1) % n];
+    const ex = x2 - x1, ey = y2 - y1, len = Math.hypot(ex, ey);
+    faces.push({ v: [[x1, y1, -d], [x2, y2, -d], [x2, y2, d], [x1, y1, d]], n: [ey / len, -ex / len, 0] });
   }
-  return out;
-}
-const regular = (n, R, a0) => Array.from({ length: n }, (_, i) => [R * Math.cos(a0 + i * TAU / n), R * Math.sin(a0 + i * TAU / n)]);
-const SHAPES = [
-  new Float32Array(NA).fill(230),
-  polyRadii(regular(4, 290, -Math.PI / 4)),
-  polyRadii(regular(3, 310, -Math.PI / 2)),
-  polyRadii(Array.from({ length: 10 }, (_, i) => {
-    const r = i % 2 ? 132 : 330, a = -Math.PI / 2 + i * Math.PI / 5;
-    return [r * Math.cos(a), r * Math.sin(a)];
-  })),
+  return faces;
+})();
+const PILLARS = [
+  { t: 3.5, n: '01', en: 'EMERGENCY MEDICINE', jp: '救急医療', x: 140, y: 300, al: 'left' },
+  { t: 4.0, n: '02', en: 'DOCTOR-HELI', jp: 'ドクターヘリ', x: 1780, y: 520, al: 'right' },
+  { t: 4.5, n: '03', en: 'DISASTER MEDICINE', jp: '災害医療', x: 140, y: 790, al: 'left' },
 ];
-const SHAPE_COL = [C.ink, C.blue, C.red, C.ink];
-const SEGS = [3.75, 4.25, 4.75];
-function morphState(t) {
-  let k = 0, e = 0;
-  for (let i = 0; i < SEGS.length; i++) if (t >= SEGS[i]) { k = i; e = BZ(prog(t, SEGS[i], SEGS[i] + 0.42)); }
-  if (t < SEGS[0]) return { a: 0, b: 0, e: 0, rot: 0 };
-  return { a: k, b: k + 1, e, rot: (k + e) * TAU };
-}
-function shapePath(ctx, st, cx, cy, s) {
-  const A = SHAPES[st.a], B = SHAPES[st.b];
-  ctx.beginPath();
-  for (let k = 0; k < NA; k++) {
-    const a = k / NA * TAU - Math.PI / 2 + st.rot;
-    const r = lerp(A[k], B[k], st.e) * s;
-    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-    k ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-  }
-  ctx.closePath();
-}
+const norm3 = v => { const l = Math.hypot(...v); return v.map(x => x / l); };
+const LIGHT = norm3([-0.5, -0.8, -0.9]), HALF = norm3([LIGHT[0], LIGHT[1], LIGHT[2] - 1]);
 function s3(ctx, t) {
-  bg(ctx, C.cream);
-  const gFade = 1 - prog(t, 5.08, 5.25);
-  // ---- graph panel
-  const x0 = 200, y0 = 830, S = 520;
-  if (gFade > 0) {
-    ctx.globalAlpha = gFade;
-    const ax = E.outExpo(prog(t, 3.5, 3.85));
-    ctx.fillStyle = alpha(C.ink, 0.08);
-    for (let i = 1; i <= 4; i++) {
-      ctx.fillRect(x0, y0 - S * i / 4, S * ax, 1);
-      ctx.fillRect(x0 + S * i / 4, y0 - S * ax, 1, S * ax);
+  bg(ctx, C.bg);
+  const glow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 900);
+  glow.addColorStop(0, alpha(C.red, 0.22)); glow.addColorStop(1, alpha(C.red, 0));
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
+  const P3 = (x, y, z, sc = 300) => { const s = 1500 / (1500 + z * sc); return [W / 2 + x * sc * s, H / 2 + y * sc * s, s]; };
+  // perspective floor grid, scrolling toward camera
+  ctx.strokeStyle = alpha(C.cream, 0.08); ctx.lineWidth = 1;
+  const scroll = (t * 2.2) % 1;
+  for (let i = -8; i <= 8; i++) { const a = P3(i, 1.9, -2), b = P3(i, 1.9, 14); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+  for (let j = 0; j < 16; j++) { const z = j - scroll - 1; const a = P3(-8, 1.9, z), b = P3(8, 1.9, z); ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+
+  const intro = E.outBack(prog(t, 3.5, 3.85), 1.6);
+  const fly = E.inExpo(prog(t, 4.72, 5.0));
+  let spin = 0;
+  for (const p of PILLARS) if (t >= p.t) spin += BZ(prog(t, p.t, p.t + 0.42)) * Math.PI;
+  const ay = (t - 3.5) * 0.7 + spin + 0.5, ax = -0.35 + 0.1 * Math.sin(t * 2), az = 0.08;
+  const scale = intro * (1 + fly * 14);
+  const rot = ([x, y, z]) => { let [a, b, c] = rot3(x, y, z, ay, ax); const cz = Math.cos(az), sz = Math.sin(az); return [a * cz - b * sz, a * sz + b * cz, c]; };
+  // orbit rings (one per pillar, lit when its pillar lands)
+  const drawRing = (k, front) => {
+    const lit = t >= PILLARS[k].t ? 1 : 0;
+    for (let i = 0; i < 90; i++) {
+      const a = i / 90 * TAU + t * (0.6 + k * 0.25) * (k % 2 ? -1 : 1);
+      const R = 1.55 + k * 0.28;
+      let [x, y, z] = rot3(Math.cos(a) * R, 0, Math.sin(a) * R, k * 1.1, 1.1 + k * 0.35);
+      if ((z < 0) !== front) continue;
+      const [px, py, s] = P3(x * intro, y * intro, z * intro);
+      ctx.fillStyle = lit ? alpha(C.red, clamp(s - 0.5)) : alpha(C.cream, 0.35 * clamp(s - 0.6));
+      ctx.fillRect(px - 2 * s, py - 2 * s, 4 * s, 4 * s);
     }
-    ctx.fillStyle = C.ink;
-    ctx.fillRect(x0, y0 - 1.5, S * ax, 3);
-    ctx.fillRect(x0 - 1.5, y0 - S * ax, 3, S * ax);
-    // handles
-    const hp = E.outBack(prog(t, 3.62, 3.9), 2);
-    const P = (u, v) => [x0 + u * S, y0 - v * S];
-    const [h1x, h1y] = P(0.8, 0), [h2x, h2y] = P(0.2, 1);
-    ctx.strokeStyle = C.red; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(lerp(x0, h1x, hp), lerp(y0, h1y, hp));
-    ctx.moveTo(x0 + S, y0 - S); ctx.lineTo(lerp(x0 + S, h2x, hp), lerp(y0 - S, h2y, hp)); ctx.stroke();
-    for (const [hx, hy, ox, oy] of [[h1x, h1y, x0, y0], [h2x, h2y, x0 + S, y0 - S]]) {
-      ctx.fillStyle = C.cream; ctx.beginPath(); ctx.arc(lerp(ox, hx, hp), lerp(oy, hy, hp), 10 * clamp(hp * 2), 0, TAU); ctx.fill();
-      ctx.lineWidth = 3; ctx.stroke();
-    }
-    // curve
-    const cp = E.ioC(prog(t, 3.6, 4.0));
-    ctx.strokeStyle = C.ink; ctx.lineWidth = 6; ctx.lineCap = 'round';
-    ctx.beginPath();
-    for (let i = 0; i <= 120 * cp; i++) {
-      const [u, v] = BZ.pt(i / 120);
-      const [px, py] = P(u, v); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-    }
-    ctx.stroke(); ctx.lineCap = 'butt';
-    // playhead
-    if (t >= SEGS[0]) {
-      let lp = 0;
-      for (const s of SEGS) if (t >= s) lp = prog(t, s, s + 0.42);
-      const v = BZ(lp); const [px, py] = P(lp, v);
-      ctx.setLineDash([6, 8]); ctx.strokeStyle = alpha(C.ink, 0.5); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, py); ctx.lineTo(x0, py); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle = C.red; ctx.beginPath(); ctx.arc(px, py, 13, 0, TAU); ctx.fill();
-      // value meter
-      ctx.fillStyle = alpha(C.ink, 0.12); ctx.fillRect(x0 + S + 40, y0 - S, 14, S);
-      ctx.fillStyle = C.red; ctx.fillRect(x0 + S + 40, y0 - S * v, 14, S * v);
-    }
-    // labels
-    font(ctx, 500, 24, F.mono); ctx.fillStyle = C.ink;
-    ctx.fillText(scramble('cubic-bezier(0.80, 0.00, 0.20, 1.00)', prog(t, 3.7, 4.15), 7), x0, y0 + 60);
-    font(ctx, 500, 16, F.mono); ctx.fillStyle = alpha(C.ink, 0.55);
-    ctx.fillText(scramble('TIME →', prog(t, 3.8, 4.1), 2), x0 + S - 70, y0 + 28);
-    ctx.save(); ctx.translate(x0 - 22, y0 - S + 80); ctx.rotate(-Math.PI / 2);
-    ctx.fillText(scramble('← VALUE', prog(t, 3.8, 4.1), 4), 0, 0); ctx.restore();
-    font(ctx, 800, 64, F.disp); ctx.fillStyle = C.ink;
-    ctx.fillText(scramble('EASING', prog(t, 3.55, 3.95), 5), x0, 230);
-    ctx.globalAlpha = 1;
-  }
-  // ---- morphing shape
-  const zoom = E.inExpo(prog(t, 5.2, 5.5));
-  const cx = lerp(1300, W / 2, zoom), cy = lerp(540, H / 2, zoom);
-  const intro = E.outBack(prog(t, 3.5, 3.85), 1.8);
-  const sc = intro * (1 + zoom * 16);
-  const st = morphState(t);
-  // echo trails
-  for (let j = 5; j >= 1; j--) {
-    const sj = morphState(t - j * 0.03);
-    shapePath(ctx, sj, cx, cy, sc);
-    ctx.strokeStyle = alpha(C.ink, 0.28 - j * 0.045); ctx.lineWidth = 2; ctx.stroke();
-  }
-  shapePath(ctx, st, cx, cy, sc);
-  ctx.fillStyle = zoom > 0 ? C.ink : mix(SHAPE_COL[st.a], SHAPE_COL[st.b], st.e);
-  ctx.fill();
-  // index dots for shapes
-  if (gFade > 0) {
-    const cur = st.e > 0.5 ? st.b : st.a;
-    for (let i = 0; i < 4; i++) {
-      ctx.fillStyle = i === cur ? C.red : alpha(C.ink, 0.2);
-      ctx.fillRect(1300 - 66 + i * 36, 930, 24, 6);
+  };
+  if (fly < 0.5) for (let k = 0; k < 3; k++) drawRing(k, false);
+  // cross: painter's sort, flat shading + specular + gloss sweep
+  const cam = [0, 0, -1500 / 300];
+  const fs = CROSS.map(f => {
+    const v = f.v.map(rot), n = rot(f.n);
+    const c = v.reduce((a, p) => a.map((x, i) => x + p[i] / v.length), [0, 0, 0]);
+    const vis = n[0] * (c[0] - cam[0]) + n[1] * (c[1] - cam[1]) + n[2] * (c[2] - cam[2]) < 0;
+    return { f, v, n, z: c[2], vis };
+  }).filter(o => o.vis).sort((a, b) => (a.f.front ? 1 : 0) - (b.f.front ? 1 : 0) || b.z - a.z); // sides back-to-front, cap last
+  for (const o of fs) {
+    const pts = o.v.map(([x, y, z]) => P3(x * scale, y * scale, z * scale));
+    const dif = Math.max(0, o.n[0] * LIGHT[0] + o.n[1] * LIGHT[1] + o.n[2] * LIGHT[2]);
+    const spec = Math.pow(Math.max(0, o.n[0] * HALF[0] + o.n[1] * HALF[1] + o.n[2] * HALF[2]), 30);
+    const base = o.f.front ? [255, 59, 31] : [190, 28, 18];
+    const col = base.map(c => Math.min(255, c * (0.28 + 0.8 * dif) + 255 * spec * 0.55) | 0);
+    ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath();
+    ctx.fillStyle = `rgb(${col})`; ctx.fill();
+    if (o.f.front) {
+      ctx.save(); ctx.clip();
+      const sw = ((t * 0.9) % 1.6) - 0.3;
+      const gr = ctx.createLinearGradient(W / 2 - 400, H / 2 - 400, W / 2 + 400, H / 2 + 400);
+      gr.addColorStop(clamp(sw - 0.12), 'rgba(255,255,255,0)'); gr.addColorStop(clamp(sw), 'rgba(255,255,255,0.28)'); gr.addColorStop(clamp(sw + 0.12), 'rgba(255,255,255,0)');
+      ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(255,220,210,0.35)'; ctx.lineWidth = 1.5; ctx.stroke();
     }
   }
+  if (fly < 0.5) for (let k = 0; k < 3; k++) drawRing(k, true);
+  // pillar callouts
+  const ca = 1 - prog(t, 4.7, 4.85);
+  PILLARS.forEach((p, k) => {
+    const q = prog(t, p.t + 0.05, p.t + 0.45);
+    if (q <= 0 || ca <= 0) return;
+    ctx.globalAlpha = ca;
+    const e = E.outExpo(q), dir = p.al === 'left' ? 1 : -1;
+    ctx.textAlign = p.al;
+    font(ctx, 500, 20, F.mono); ctx.fillStyle = C.red;
+    ctx.fillText(scramble(`${p.n} / 03`, q, 81 + k), p.x, p.y - 64);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, p.y - 56, W, 64); ctx.clip();
+    font(ctx, 800, 50, F.disp); ctx.fillStyle = C.cream;
+    ctx.fillText(p.en, p.x, p.y + (1 - e) * 60); ctx.restore();
+    font(ctx, 700, 30, F.jps); ctx.fillStyle = alpha(C.cream, 0.7 * e);
+    ctx.fillText(p.jp, p.x, p.y + 48);
+    ctx.fillStyle = alpha(C.cream, 0.5);
+    ctx.fillRect(p.x + (dir > 0 ? 0 : -280 * e), p.y + 70, 280 * e, 2);
+    ctx.textAlign = 'left'; ctx.globalAlpha = 1;
+  });
 }
 
 /* ============================================================
@@ -507,8 +470,8 @@ function s4(ctx, t) {
     let size = (P.red ? 3.2 : 2.4) * s, a = clamp((s - 0.7) * 2.6, 0.3, 1);
     let cr = P.red ? 255 : 243, cg = P.red ? 59 : 238, cb = P.red ? 31 : 227;
     if (exploding) {
-      const t0 = 6.86 + P.d * 0.18;
-      const c = E.ioC(prog(t, t0, t0 + 0.3));
+      const t0 = 6.86 + P.d * 0.14;
+      const c = E.ioC(prog(t, t0, t0 + 0.26));
       const T = TGT[i];
       px = lerp(px, T.x, c); py = lerp(py, T.y, c);
       size = lerp(size, CELL + 0.6, c * c); a = lerp(a, 1, c);
@@ -518,56 +481,67 @@ function s4(ctx, t) {
     ctx.fillRect(px - size / 2, py - size / 2, size, size);
   }
   // mosaic resolves into the painting
-  const ip = E.ioC(prog(t, 7.28, 7.5));
+  const ip = E.ioC(prog(t, 7.2, 7.38));
   if (ip > 0) { ctx.globalAlpha = ip; ctx.drawImage(IMG.paint, 0, 0); ctx.globalAlpha = 1; }
   // caption
-  const cp = prog(t, 7.2, 7.45);
+  const cp = prog(t, 7.2, 7.4);
   if (cp > 0) {
     font(ctx, 500, 22, F.mono); ctx.fillStyle = C.cream; ctx.textAlign = 'center';
     ctx.letterSpacing = '10px';
-    ctx.fillText(scramble(`${NP.toLocaleString('en')} POINTS  →  PORTRAIT`, cp, 11), W / 2, 1000);
+    ctx.fillText(scramble('ON THE FRONT LINE', cp, 11), W / 2, 1000);
     ctx.letterSpacing = '0px'; ctx.textAlign = 'left';
   }
 }
 
 /* ============================================================
-   SCENE 5 — PORTRAIT: PAINTING → DE STIJL tile flip (7.5 – 9.0)
+   SCENE 5 — DOCTOR-HELI montage (5.0 – 7.0), a cut per beat
    ============================================================ */
-function s5(ctx, t) {
-  bg(ctx, C.ink);
-  let z = 1 + 0.04 * prog(t, 7.3, 9.0);
-  for (const b of [8.0, 8.5]) if (t >= b) z += 0.018 * Math.exp(-(t - b) * 10);
-  ctx.save(); ctx.translate(FACE[0], FACE[1]); ctx.scale(z, z); ctx.translate(-FACE[0], -FACE[1]);
-  ctx.drawImage(IMG.paint, 0, 0);
-  const T = 120;
-  for (let r = 0; r < 9; r++) for (let c = 0; c < 16; c++) {
-    const x = c * T, y = r * T;
-    const d = Math.hypot(x + T / 2 - FACE[0], y + T / 2 - FACE[1]) / T;
-    const p = prog(t, 8.0 + d * 0.042, 8.0 + d * 0.042 + 0.28);
-    if (p <= 0) continue;
-    const e = E.ioC(p), sx = Math.abs(Math.cos(Math.PI * e));
-    const src = e < 0.5 ? IMG.paint : IMG.mond;
-    ctx.fillStyle = C.ink; ctx.fillRect(x, y, T, T);
-    const lift = 1 + 0.12 * Math.sin(Math.PI * e);
-    const w = T * sx * lift, h = T * lift;
-    ctx.drawImage(src, x, y, T, T, x + (T - w) / 2, y + (T - h) / 2, w, h);
-    if (e > 0 && e < 1) { ctx.fillStyle = `rgba(0,0,0,${(1 - sx) * 0.45})`; ctx.fillRect(x + (T - w) / 2, y + (T - h) / 2, w, h); }
-  }
-  ctx.restore();
-  // caption pill
-  const cp = prog(t, 8.45, 8.75);
-  if (cp > 0) {
-    const e = E.outExpo(cp);
-    ctx.fillStyle = C.ink; ctx.fillRect(56, 900, 560 * e, 64);
-    font(ctx, 500, 22, F.mono); ctx.fillStyle = C.cream; ctx.letterSpacing = '6px';
-    ctx.fillText(scramble('PAINTING  →  DE STIJL', cp, 51), 84, 941);
-    ctx.letterSpacing = '0px';
-  }
-  // Mondrian-coloured bars sweep into the next scene
-  [C.red, C.yellow, C.blue, C.cream].forEach((col, i) => {
-    const p = E.ioExpo(prog(t, 8.74 + i * 0.03, 8.74 + i * 0.03 + 0.16));
-    if (p > 0) { ctx.fillStyle = col; ctx.fillRect(W - (W + 40) * p, -50, W + 400, H + 100); }
+function cover(ctx, img, z = 1, fx = 0.5, fy = 0.5, rot = 0) {
+  const s = Math.max(W / img.width, H / img.height) * z;
+  const w = img.width * s, h = img.height * s;
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.rotate(rot);
+  ctx.drawImage(img, -w * fx, -h * fy, w, h); ctx.restore();
+}
+const SHOTS = [
+  { img: 'ja6790', word: 'DOCTOR-HELI', meta: 'JA6790  /  MD902', z0: 1.18, z1: 1.04, fx: 0.52, fy: 0.5, r0: 0, dir: 1 },
+  { img: 'halo', word: 'ANYTIME.', meta: 'READY ON THE PAD', z0: 1.35, z1: 1.12, fx: 0.45, fy: 0.5, r0: -0.12, dir: -1 },
+  { img: 'heli', word: 'ANYWHERE.', meta: 'AIRBORNE', z0: 1.25, z1: 1.1, fx: 0.55, fy: 0.48, r0: 0.05, dir: 1 },
+  { img: 'hems', word: '', meta: '', z0: 1.12, z1: 1.0, fx: 0.5, fy: 0.5, r0: 0, dir: -1 },
+];
+function shot(ctx, k, t) {
+  const S = SHOTS[k], lt = t - (5.0 + k * 0.5);
+  bg(ctx, C.bg);
+  cover(ctx, IMG[S.img], lerp(S.z0, S.z1, E.outExpo(prog(lt, 0, 0.5))), S.fx, S.fy, S.r0 * (1 - E.outExpo(prog(lt, 0, 0.4))));
+  if (!S.word) return;
+  const gr = ctx.createLinearGradient(0, H * 0.45, 0, H);
+  gr.addColorStop(0, 'rgba(10,10,12,0)'); gr.addColorStop(1, 'rgba(10,10,12,0.6)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  const size = fitSize(ctx, S.word, 800, F.disp, 1500, 200);
+  font(ctx, 800, size, F.disp);
+  const L = layout(ctx, S.word, 0), base = H - 140;
+  ctx.save(); ctx.beginPath(); ctx.rect(0, base - size, W, size * 1.08); ctx.clip();
+  ctx.fillStyle = C.cream;
+  L.chars.forEach((c, i) => {
+    const p = E.outExpo(prog(lt, 0.02 + i * 0.022, 0.02 + i * 0.022 + 0.35));
+    ctx.fillText(c.ch, 110 + c.x, base + (1 - p) * size);
   });
+  ctx.restore();
+  font(ctx, 500, 22, F.mono); ctx.fillStyle = C.red; ctx.letterSpacing = '6px';
+  ctx.fillText(scramble(S.meta, prog(lt, 0.05, 0.3), 90 + k), 114, base - size - 20);
+  ctx.letterSpacing = '0px';
+}
+function s5(ctx, t) {
+  const k = Math.min(3, Math.floor((t - 5.0) / 0.5)), lt = t - (5.0 + k * 0.5);
+  const inP = k === 0 ? 1 : E.outExpo(prog(lt, 0, 0.16));
+  if (inP < 1) shot(ctx, k - 1, t);
+  ctx.save();
+  ctx.translate((1 - inP) * W * SHOTS[k].dir, 0);
+  shot(ctx, k, t);
+  ctx.restore();
+  // shutter-flash on the cut
+  const fl = 1 - prog(lt, 0, 0.08);
+  if (fl > 0 && k > 0) { ctx.fillStyle = `rgba(255,255,255,${0.35 * fl})`; ctx.fillRect(0, 0, W, H); }
+  if (t >= 6.9) { ctx.fillStyle = alpha(C.bg, E.inC(prog(t, 6.9, 7.0))); ctx.fillRect(0, 0, W, H); }
 }
 
 /* ============================================================
@@ -592,9 +566,9 @@ function s6(ctx, t) {
   const dark = t >= 10.5;
   bg(ctx, dark ? C.ink : C.cream);
   const fg = dark ? C.cream : C.ink;
-  marquee(ctx, 'MOTOMURA CREATIVE — ', 190, 330, -520, t, fg, 0.14);
-  marquee(ctx, 'KEY VISUAL — EDITORIAL — ', 190, 950, 520, t, fg, 0.14);
-  const zoom = 1 + E.inExpo(prog(t, 11.05, 11.5)) * 2.4;
+  marquee(ctx, 'DISASTER MEDICINE — ', 190, 330, -520, t, fg, 0.14);
+  marquee(ctx, 'PEOPLE — MEDICINE — COMMUNITY — ', 190, 950, 520, t, fg, 0.14);
+  const zoom = 1 + E.inExpo(prog(t, 10.62, 11.0)) * 2.4;
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2);
   const ch = 880, cw = ch * 1122 / 1402;
   IMG.posters.forEach((img, i) => {
@@ -609,14 +583,46 @@ function s6(ctx, t) {
   });
   ctx.restore();
   font(ctx, 500, 20, F.mono); ctx.fillStyle = fg; ctx.letterSpacing = '6px';
-  ctx.fillText(scramble('KEY VISUAL / EDITORIAL DESIGN', prog(t, 9.0, 9.35), 61), 56, 130);
+  ctx.fillText(scramble('DISASTER MEDICINE  /  災害医療', prog(t, 9.0, 9.35), 61), 56, 130);
   ctx.letterSpacing = '0px';
-  const cp = prog(t, 10.6, 10.95);
+  const cp = prog(t, 10.55, 10.8);
   if (cp > 0) {
     font(ctx, 800, 58, F.disp); ctx.fillStyle = C.cream; ctx.textAlign = 'center';
-    ctx.fillText(scramble('MOTOMURA CREATIVE', cp, 71), W / 2, 1000);
+    ctx.fillText(scramble('MEDICINE · DISASTER · SOCIETY', cp, 71), W / 2, 1000);
     ctx.textAlign = 'left';
   }
+}
+
+/* ============================================================
+   SCENE 6b — TEAM: Hokusoh Shock & Trauma Center (10.5 – 11.5)
+   ============================================================ */
+function s9(ctx, t) {
+  bg(ctx, C.bg);
+  const img = IMG.sleeve, sy = 155, sh = 1620, ph = 980, pw = ph * img.width / sh;
+  const px = W - 170 - pw, py = (H - ph) / 2;
+  const rv = E.ioExpo(prog(t, 10.5, 10.78));
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py + ph * (1 - rv), pw, ph * rv); ctx.clip();
+  const z = 1.25 - 0.15 * E.outC(prog(t, 10.5, 11.5));
+  const zw = pw * z, zh = ph * z;
+  ctx.drawImage(img, 0, sy, img.width, sh, px - (zw - pw) * 0.5, py - (zh - ph) * 0.38, zw, zh);
+  ctx.restore();
+  ctx.fillStyle = C.red; ctx.fillRect(px - 24, py + ph * (1 - rv), 6, ph * rv);
+  font(ctx, 500, 22, F.mono); ctx.fillStyle = C.red; ctx.letterSpacing = '6px';
+  ctx.fillText(scramble('HOKUSOH SHOCK & TRAUMA CENTER', prog(t, 10.55, 10.85), 101), 150, 330);
+  ctx.letterSpacing = '0px';
+  const size = 118; font(ctx, 400, size, F.jp);
+  [['チームで、', 520, 10.6], ['命をつなぐ。', 690, 10.85]].forEach(([str, base, t0]) => {
+    const L = layout(ctx, str, 2);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, base - size, W, size * 1.2); ctx.clip();
+    L.chars.forEach((c, i) => {
+      const p = E.outExpo(prog(t, t0 + i * 0.035, t0 + i * 0.035 + 0.4));
+      ctx.fillStyle = c.ch === '。' || c.ch === '、' ? C.red : C.cream;
+      ctx.fillText(c.ch, 150 + c.x, base + (1 - p) * size * 1.1);
+    });
+    ctx.restore();
+  });
+  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.cream, 0.6 * E.outC(prog(t, 11.0, 11.3)));
+  ctx.letterSpacing = '5px'; ctx.fillText('TEAMWORK  ·  EDUCATION  ·  NEXT GENERATION', 150, 790); ctx.letterSpacing = '0px';
 }
 
 /* ============================================================
@@ -624,7 +630,7 @@ function s6(ctx, t) {
    ============================================================ */
 let TMP, CH;
 const IMG = {};
-const RECAP = [10.85, 9.7, 8.45, 7.6, 7.15, 6.3, 4.6, 2.9];
+const RECAP = [11.0, 9.3, 8.45, 7.5, 6.2, 5.2, 4.2, 2.9];
 function rgbSplit(dst, src, off) {
   const g = CH.getContext('2d');
   bg(dst, '#000');
@@ -697,18 +703,19 @@ function s8(ctx, t) {
     ctx.fillRect(x, y, L * sx, 2 * sy); ctx.fillRect(x, y, 2 * sx, L * sy);
   }
   // name
-  const size = 190, sp = 34;
-  font(ctx, 700, size, F.jps);
-  const NL = layout(ctx, NAME, sp);
-  const gap = 70, sealS = 170;
+  const DISP = 'Tomokazu Motomura';
+  const size = fitSize(ctx, DISP, 800, F.disp, 1260, 132), sp = 0;
+  font(ctx, 800, size, F.disp);
+  const NL = layout(ctx, DISP, sp);
+  const gap = 60, sealS = 160;
   const gx = (W - (NL.width + gap + sealS)) / 2, base = 560, rule = 624;
   ctx.save();
-  ctx.beginPath(); ctx.rect(0, base - size * 1.1, W, size * 1.1 + 40); ctx.clip();
+  ctx.beginPath(); ctx.rect(0, base - size * 1.1, W, size * 1.1 + 34); ctx.clip();
   NL.chars.forEach((c, i) => {
-    const p = prog(t, 12.08 + i * 0.07, 12.08 + i * 0.07 + 0.65);
+    const p = prog(t, 12.08 + i * 0.03, 12.08 + i * 0.03 + 0.6);
     const e = E.outExpo(p);
-    ctx.save(); ctx.translate(gx + c.x, base + (1 - e) * size * 1.2);
-    const b = (1 - e) * 14; if (b > 0.5) ctx.filter = `blur(${b.toFixed(1)}px)`;
+    ctx.save(); ctx.translate(gx + c.x, base + (1 - e) * size * 1.3);
+    const b = (1 - e) * 12; if (b > 0.5) ctx.filter = `blur(${b.toFixed(1)}px)`;
     ctx.fillStyle = C.ink; ctx.fillText(c.ch, 0, 0); ctx.restore();
   });
   ctx.restore();
@@ -717,25 +724,26 @@ function s8(ctx, t) {
   const RW = NL.width + gap + sealS;
   ctx.fillStyle = C.ink; ctx.fillRect(gx, rule, RW * rp, 3);
   ctx.fillStyle = C.red; ctx.fillRect(gx, rule - 2, 90 * E.outExpo(prog(t, 12.4, 12.8)), 7);
-  // subtitle / meta
-  font(ctx, 400, 44, F.disp); ctx.fillStyle = C.ink; ctx.letterSpacing = '16px';
-  ctx.fillText(scramble('MOTION DESIGNER', prog(t, 12.4, 12.95), 21), gx, rule + 84);
+  // title / meta
+  font(ctx, 400, 38, F.disp); ctx.fillStyle = C.ink; ctx.letterSpacing = '10px';
+  ctx.fillText(scramble('FLIGHT DOCTOR', prog(t, 12.4, 12.9), 21), gx, rule + 78);
+  ctx.fillText(scramble('EMERGENCY PHYSICIAN', prog(t, 12.55, 13.1), 22), gx, rule + 134);
   ctx.letterSpacing = '0px';
-  font(ctx, 700, 28, F.jps); ctx.textAlign = 'right';
-  const jp = E.outC(prog(t, 12.7, 13.1));
+  font(ctx, 700, 26, F.jps); ctx.textAlign = 'right';
+  const jp = E.outC(prog(t, 12.8, 13.2));
   ctx.fillStyle = alpha(C.ink, 0.6 * jp);
-  ctx.fillText('モーションデザイナー', gx + RW, rule + 80 + (1 - jp) * 14);
+  ctx.fillText('フライトドクター ／ 救急科医', gx + RW, rule + 76 + (1 - jp) * 14);
   ctx.textAlign = 'left';
   font(ctx, 500, 22, F.mono); ctx.fillStyle = C.red; ctx.letterSpacing = '6px';
-  ctx.fillText(scramble(`● ${NAME_EN}`, prog(t, 12.55, 13.0), 31), gx, base - size - 26);
+  ctx.fillText(scramble(`● ${NAME}`, prog(t, 12.55, 13.0), 31), gx, base - size - 30);
   ctx.letterSpacing = '0px';
   font(ctx, 500, 18, F.mono); ctx.fillStyle = alpha(C.ink, 0.55); ctx.textAlign = 'center';
   ctx.letterSpacing = '8px';
-  ctx.fillText(scramble('SHOWREEL 2026  ·  KINETIC TYPE  ·  3D  ·  PORTRAIT  ·  KEY VISUAL', prog(t, 12.9, 13.5), 41), W / 2, H - m - 20);
+  ctx.fillText(scramble('EMERGENCY MEDICINE  ·  DOCTOR-HELI  ·  DISASTER MEDICINE', prog(t, 12.9, 13.5), 41), W / 2, H - m - 20);
   ctx.letterSpacing = '0px'; ctx.textAlign = 'left';
 
   // seal stamp
-  const SX = gx + NL.width + gap + sealS / 2, SY = base - size * 0.37;
+  const SX = gx + NL.width + gap + sealS / 2, SY = base - size * 0.4;
   const sp1 = prog(t, 13.3, 13.5);
   if (sp1 > 0) {
     const landed = t >= 13.5;
@@ -774,17 +782,19 @@ function s8(ctx, t) {
    COMPOSITOR — scenes, HUD, grain, motion blur
    ============================================================ */
 function drawScene(ctx, t) {
-  if (t < 1.5) s1(ctx, t); else if (t < 3.5) s2(ctx, t); else if (t < 5.5) s3(ctx, t);
-  else if (t < 7.5) s4(ctx, t); else if (t < 9) s5(ctx, t); else if (t < 11.5) s6(ctx, t);
+  if (t < 1.5) s1(ctx, t); else if (t < 3.5) s2(ctx, t); else if (t < 5.0) s3(ctx, t);
+  else if (t < 7.0) s5(ctx, t); else if (t < 8.5) s4(ctx, 5.5 + (t - 7.0) * 5 / 3);
+  else if (t < 10.5) s6(ctx, t + 0.5); else if (t < 11.5) s9(ctx, t);
   else if (t < 12) s7(ctx, t); else s8(ctx, t);
 }
 function drawWorld(ctx, t) {
   const sh = shake(t);
   ctx.save(); ctx.translate(sh.x, sh.y); drawScene(ctx, t); ctx.restore();
 }
-const SECTIONS = [[0, '(00) IGNITION', C.cream], [1.5, '(01) KINETIC TYPE', C.ink], [2.5, '(01) KINETIC TYPE', C.ink],
-  [3.5, '(02) EASING / MORPH', C.ink], [5.5, '(03) 3D / PARTICLES', C.cream], [7.5, '(04) PORTRAIT / STYLE', C.cream],
-  [9.0, '(05) KEY VISUAL', C.ink], [10.5, '(05) KEY VISUAL', C.cream], [11.5, '(06) REWIND', C.cream], [12, '', C.ink]];
+const SECTIONS = [[0, '(00) VITALS', C.cream], [1.5, '(01) EMERGENCY', C.ink], [2.5, '(01) EMERGENCY', C.ink],
+  [3.5, '(02) THREE PILLARS', C.cream], [5.0, '(03) DOCTOR-HELI', C.cream], [7.0, '(04) ON THE FRONT LINE', C.cream],
+  [8.5, '(05) DISASTER MEDICINE', C.ink], [10.0, '(05) DISASTER MEDICINE', C.cream], [10.5, '(06) TEAM', C.cream],
+  [11.5, '(07) REWIND', C.cream], [12, '', C.ink]];
 function hud(ctx, t) {
   let sec = SECTIONS[0], secStart = 0;
   for (const s of SECTIONS) if (t >= s[0]) sec = s;
@@ -794,11 +804,11 @@ function hud(ctx, t) {
   const col = sec[2], m = 56;
   ctx.globalAlpha = a; ctx.fillStyle = col;
   font(ctx, 500, 17, F.mono); ctx.letterSpacing = '3px';
-  ctx.fillText(`${NAME_EN}  /  ${NAME}  —  MOTION REEL 2026`, m, m + 12);
+  ctx.fillText(`${NAME_EN}  /  ${NAME}  —  FLIGHT DOCTOR`, m, m + 12);
   const f = Math.floor(t * FPS + 1e-6);
   const tc = `00:00:${String(Math.floor(f / FPS)).padStart(2, '0')}:${String(f % FPS).padStart(2, '0')}`;
-  ctx.textAlign = 'right'; ctx.fillText(`● REC  ${tc}`, W - m, m + 12);
-  ctx.fillText('1920×1080  60P  120BPM', W - m, H - m - 22);
+  ctx.textAlign = 'right'; ctx.fillText(`♥ HR 120   SpO₂ 98%   ● ${tc}`, W - m, m + 12);
+  ctx.fillText('ANYTIME  ·  ANYWHERE', W - m, H - m - 22);
   ctx.textAlign = 'left';
   ctx.fillText(scramble(sec[1], prog(t, secStart, secStart + 0.3), 17), m, H - m);
   // progress bar
@@ -846,10 +856,10 @@ async function init(canvas) {
   MAIN = canvas; MAIN.width = W; MAIN.height = H;
   WORK = mk(); ACC = mk(); TMP = mk(); CH = mk();
   const load = src => new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = src; });
-  const [portrait, heli, ...posters] = await Promise.all(['img/portrait.png', 'img/heli.jpg', 'img/poster1.png', 'img/poster2.png', 'img/poster3.jpg'].map(load));
+  const [portrait, heli, road, ja6790, halo, hems, sleeve, ...posters] = await Promise.all(['portrait.png', 'heli.jpg', 'road.jpg', 'ja6790.jpg', 'halo.jpg', 'hems.png', 'sleeve.png', 'poster1.png', 'poster2.png', 'poster3.jpg'].map(f => load('img/' + f)));
   // the source stacks a painting (top) over its De Stijl remake (bottom); crop each to 16:9, faces aligned
   const crop = sy => { const c = mk(), g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(portrait, 0, sy, 1122, 631, 0, 0, W, H); return c; };
-  Object.assign(IMG, { heli, posters, paint: crop(50), mond: crop(705) });
+  Object.assign(IMG, { heli, road, ja6790, halo, hems, sleeve, posters, paint: crop(50) });
   initGrain(); initTargets(); initSeal();
 }
 
