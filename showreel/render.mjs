@@ -4,6 +4,8 @@ import { chromium } from '/opt/node22/lib/node_modules/playwright/index.mjs';
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import http from 'node:http';
+import { readFileSync } from 'node:fs';
 
 const args = process.argv.slice(2);
 const opt = k => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
@@ -13,7 +15,13 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
 page.on('console', m => console.log('[page]', m.text()));
 page.on('pageerror', e => { console.error('[pageerror]', e); process.exit(1); });
-await page.goto('file://' + dir + '/index.html?render');
+// serve over http so image pixels stay readable (file:// would taint the canvas)
+const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.png': 'image/png', '.jpg': 'image/jpeg', '.ttf': 'font/ttf', '.m4a': 'audio/mp4' };
+const server = http.createServer((req, res) => {
+  try { const f = path.join(dir, decodeURIComponent(new URL(req.url, 'http://x').pathname)); const body = readFileSync(f); res.writeHead(200, { 'content-type': MIME[path.extname(f)] || 'application/octet-stream' }); res.end(body); }
+  catch { res.writeHead(404); res.end(); }
+}).listen(0);
+await page.goto(`http://127.0.0.1:${server.address().port}/index.html?render`);
 await page.evaluate(() => window.READY);
 
 const FPS = 60, DUR = 15;
@@ -42,3 +50,4 @@ if (stills) {
   await new Promise(r => ff.on('close', r));
 }
 await browser.close();
+server.close();

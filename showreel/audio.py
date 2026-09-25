@@ -143,6 +143,8 @@ for bar in range(5):
 for x in (1.5, 2.0): add(whoosh(0.3, False, 400, 8000), x, 0.35)
 for i in range(4): add(bell(midi(76 + [0, 3, 7, 12][i])), 2.5 + i * 0.055, 0.14, pan=-0.4 + i * 0.25, verb=0.4)
 for i in range(4): add(bell(midi(79 + [0, 3, 7, 12][i])), 3.0 + i * 0.055, 0.14, pan=0.4 - i * 0.25, verb=0.4)
+rotor = lp(noise(1.0), 300) * (0.5 + 0.5 * np.sin(2 * np.pi * 13 * t_(1.0))) ** 4 * np.minimum(1, t_(1.0) / 0.05)
+add(rotor, 2.5, 0.9, verb=0.2)
 add(whoosh(0.3, True), 3.22, 0.5)
 # (2) morph pops
 for i, x in enumerate((3.5, 3.75, 4.25, 4.75)):
@@ -155,14 +157,19 @@ for x in (6.0, 6.5): add(bell(midi(64), 0.4), x, 0.2, verb=0.6)
 add(noise(1.0) * env(SR, 0.001, 0.25), 6.75, 0.5, verb=0.6)
 add(sub_drop(1.0), 6.75, 0.5)
 add(whoosh(0.45, True, 500, 9000)[::-1], 6.9, 0.45, verb=0.3)
-# (4) rhythm counter bleeps
-for i, x in enumerate((7.5, 8.0, 8.5)): add(pluck(midi(84 + i * 2), 0.25, 6000, 'sine'), x, 0.35, verb=0.3)
+# (4) portrait: shimmer as the mosaic resolves, ticks as tiles flip
+add(whoosh(0.4, True, 2000, 14000), 7.1, 0.3, verb=0.5)
+for i, m in enumerate((76, 79, 84, 88)): add(bell(midi(m), 0.6), 7.5 + i * 0.04, 0.12, pan=-0.4 + i * 0.27, verb=0.7)
+for i in range(40):
+    add(tick(), 8.0 + (i / 40) ** 1.4 * 0.68, 0.3, pan=np.sin(i * 1.7) * 0.7)
 add(whoosh(0.28, True), 8.72, 0.45)
-# (5) principles — a stab per card
-for i in range(5):
-    x = 9.0 + i * 0.5
-    add(whoosh(0.22, False, 600, 10000), x, 0.4, pan=(-1) ** i * 0.5)
-    for m in chords[i % 4][1]: add(pluck(midi(m), 0.3, 5000), x, 0.13, verb=0.4)
+# (5) key visuals: a slam per poster, then the fan-out
+for i, x in enumerate((9.0, 9.5, 10.0)):
+    add(whoosh(0.2, False, 600, 10000), x - 0.05, 0.45, pan=(0, 0.6, -0.6)[i])
+    add(kick(0.3, 110, 55, 0.2), x + 0.02, 0.5)
+    for m in chords[i % 4][1]: add(pluck(midi(m), 0.3, 5000), x, 0.12, verb=0.4)
+for i in range(3): add(whoosh(0.25, False, 500, 8000), 10.5 + i * 0.06, 0.3, pan=(-0.6, 0.6, 0)[i])
+add(riser(0.45), 11.05, 0.5)
 # (6) rewind: snare roll + riser
 for i in range(16):
     x = 11.5 + i * 0.5 / 16

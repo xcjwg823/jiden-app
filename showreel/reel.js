@@ -7,7 +7,7 @@
 'use strict';
 
 const W = 1920, H = 1080, FPS = 60, DUR = 15;
-const NAME = '本村友一';
+const NAME = '本村友一', NAME_EN = 'TOMOKAZU MOTOMURA';
 const C = {
   bg: '#0A0A0C', ink: '#0A0A0C', cream: '#F3EEE3',
   red: '#FF3B1F', blue: '#2B3BFF', yellow: '#FFD23F',
@@ -211,11 +211,23 @@ function s2(ctx, t) {
     return;
   }
   bg(ctx, C.bg);
+  // Doctor-Heli footage: ken-burns, helicopter drifts across frame
+  {
+    const k = prog(t, 2.5, 3.5);
+    const s = 1.95 + 0.14 * E.outC(k) + 0.1 * (1 - E.outExpo(prog(t, 2.5, 2.8)));
+    const iw = IMG.heli.width * s, ih = IMG.heli.height * s;
+    const hx = lerp(1180, 1300, k), hy = lerp(470, 420, k);
+    const ox = clamp(hx - 655 * s, W - iw, 0), oy = clamp(hy - 290 * s, H - ih, 0);
+    ctx.drawImage(IMG.heli, ox, oy, iw, ih);
+    const gr = ctx.createLinearGradient(0, 0, W, 0);
+    gr.addColorStop(0, 'rgba(243,238,227,0.35)'); gr.addColorStop(0.6, 'rgba(243,238,227,0)');
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
+  }
   const out = E.inExpo(prog(t, 3.25, 3.5));
   ctx.save(); ctx.translate(0, -out * 260);
-  const size = 250;
+  const size = 205;
   font(ctx, 400, size, F.jp);
-  const lines = [['動きで、', 180, 480, 2.5], ['伝える。', 520, 810, 3.0]];
+  const lines = [['動きで、', 140, 440, 2.5], ['伝える。', 240, 720, 3.0]];
   for (const [str, x0, base, t0] of lines) {
     const L = layout(ctx, str, 6);
     L.chars.forEach((c, i) => {
@@ -229,7 +241,7 @@ function s2(ctx, t) {
       const b = (1 - e) * 22;
       if (b > 0.5) ctx.filter = `blur(${b.toFixed(1)}px)`;
       ctx.globalAlpha = clamp(p * 4);
-      ctx.fillStyle = c.ch === '。' || c.ch === '、' ? C.red : C.cream;
+      ctx.fillStyle = c.ch === '。' || c.ch === '、' ? C.red : C.ink;
       ctx.textAlign = 'center';
       ctx.fillText(c.ch, 0, size * 0.36);
       ctx.restore();
@@ -237,9 +249,10 @@ function s2(ctx, t) {
   }
   // red underline
   const up = E.outExpo(prog(t, 3.05, 3.4));
-  ctx.fillStyle = C.red; ctx.fillRect(520, 860, 1150 * up, 8);
-  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.cream, 0.6 * E.outC(prog(t, 2.6, 2.9)));
-  ctx.fillText('— COMMUNICATE THROUGH MOTION', 184, 560);
+  ctx.fillStyle = C.red; ctx.fillRect(240, 762, 880 * up, 8);
+  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(C.ink, 0.75 * E.outC(prog(t, 2.6, 2.9)));
+  ctx.fillText('— COMMUNICATE THROUGH MOTION', 144, 505);
+  ctx.fillText('— DOCTOR-HELI', 1280, 700);
   ctx.restore();
   // cream bars wipe into scene 3
   ctx.fillStyle = C.cream;
@@ -390,13 +403,15 @@ function s3(ctx, t) {
 /* ============================================================
    SCENE 4 — 3D / PARTICLES (5.5 – 7.5)
    ============================================================ */
-const NP = 2600, GA = Math.PI * (3 - Math.sqrt(5));
+// every particle owns one cell of a 128x72 mosaic of the portrait
+const CELL = 15, GX = W / CELL, GY = H / CELL, NP = GX * GY, GA = Math.PI * (3 - Math.sqrt(5));
+const FACE = [933, 428];
 const PTS = [], TGT = [];
 {
   const r = rng(42);
   for (let i = 0; i < NP; i++) {
     const y = 1 - 2 * (i + 0.5) / NP, rr = Math.sqrt(1 - y * y), th = i * GA;
-    PTS.push({ x: Math.cos(th) * rr, y, z: Math.sin(th) * rr, sp: 0.5 + r() * 1.8, red: r() < 0.09, d: r() });
+    PTS.push({ x: Math.cos(th) * rr, y, z: Math.sin(th) * rr, sp: 0.5 + r() * 1.8, red: r() < 0.06, d: 0 });
   }
 }
 // subdivided icosahedron for the wireframe
@@ -431,16 +446,16 @@ function rot3(x, y, z, ay, ax) {
 const SR = 340, CAM = 1500;
 const proj = (x, y, z) => { const s = Math.min(3, CAM / Math.max(CAM * 0.3, CAM + z * SR)); return [W / 2 + x * SR * s, H / 2 + y * SR * s, s]; };
 function initTargets() {
-  const c = mk(), g = c.getContext('2d');
-  const size = fitSize(g, 'CRAFT', 800, F.disp, 1500, 360, 0.04);
-  font(g, 800, size, F.disp); g.letterSpacing = `${size * 0.04}px`;
-  g.textAlign = 'center'; g.fillStyle = '#fff';
-  g.fillText('CRAFT', W / 2 + size * 0.02, H / 2 + size * 0.36);
-  const d = g.getImageData(0, 0, W, H).data, pts = [];
-  for (let y = 0; y < H; y += 4) for (let x = (y / 4 % 2) * 2; x < W; x += 4) if (d[(y * W + x) * 4 + 3] > 128) pts.push([x, y]);
+  const d = IMG.paint.getContext('2d').getImageData(0, 0, W, H).data;
+  const cells = [];
+  for (let gy = 0; gy < GY; gy++) for (let gx = 0; gx < GX; gx++) {
+    const x = gx * CELL + CELL / 2, y = gy * CELL + CELL / 2, o = ((y | 0) * W + (x | 0)) * 4;
+    cells.push({ x, y, c: [d[o], d[o + 1], d[o + 2]] });
+  }
   const r = rng(7);
-  for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
-  for (let i = 0; i < NP; i++) TGT.push(pts[Math.floor(i * pts.length / NP)]);
+  for (let i = cells.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [cells[i], cells[j]] = [cells[j], cells[i]]; }
+  const maxD = Math.hypot(W - FACE[0], H - FACE[1]);
+  cells.forEach((c, i) => { TGT.push(c); PTS[i].d = Math.hypot(c.x - FACE[0], c.y - FACE[1]) / maxD * 0.8 + r() * 0.2; });
 }
 function s4(ctx, t) {
   bg(ctx, C.bg);
@@ -489,152 +504,127 @@ function s4(ctx, t) {
     let [x, y, z] = rot3(P.x, P.y, P.z, ay, ax);
     if (exploding) [x, y, z] = rot3(x, y, z, (t - TE) * 0.6, 0);
     let [px, py, s] = proj(x * k, y * k, z * k);
-    let size = 2.3 * s, a = clamp((s - 0.72) * 2.2, 0.18, 1);
+    let size = (P.red ? 3.2 : 2.4) * s, a = clamp((s - 0.7) * 2.6, 0.3, 1);
+    let cr = P.red ? 255 : 243, cg = P.red ? 59 : 238, cb = P.red ? 31 : 227;
     if (exploding) {
-      const t0 = 6.9 + P.d * 0.14;
-      const c = E.ioC(prog(t, t0, t0 + 0.32));
-      const [tx, ty] = TGT[i];
-      px = lerp(px, tx, c); py = lerp(py, ty, c);
-      size = lerp(size, 3.1, c); a = lerp(a, 1, c);
+      const t0 = 6.86 + P.d * 0.18;
+      const c = E.ioC(prog(t, t0, t0 + 0.3));
+      const T = TGT[i];
+      px = lerp(px, T.x, c); py = lerp(py, T.y, c);
+      size = lerp(size, CELL + 0.6, c * c); a = lerp(a, 1, c);
+      cr = lerp(cr, T.c[0], c); cg = lerp(cg, T.c[1], c); cb = lerp(cb, T.c[2], c);
     }
-    ctx.fillStyle = P.red ? C.red : alpha(C.cream, a);
-    ctx.beginPath(); ctx.arc(px, py, P.red ? size * 1.4 : size, 0, TAU); ctx.fill();
+    ctx.fillStyle = `rgba(${cr | 0},${cg | 0},${cb | 0},${a})`;
+    ctx.fillRect(px - size / 2, py - size / 2, size, size);
   }
+  // mosaic resolves into the painting
+  const ip = E.ioC(prog(t, 7.28, 7.5));
+  if (ip > 0) { ctx.globalAlpha = ip; ctx.drawImage(IMG.paint, 0, 0); ctx.globalAlpha = 1; }
   // caption
   const cp = prog(t, 7.2, 7.45);
   if (cp > 0) {
     font(ctx, 500, 22, F.mono); ctx.fillStyle = C.cream; ctx.textAlign = 'center';
     ctx.letterSpacing = '10px';
-    ctx.fillText(scramble('2,600 POINTS  /  3D → 2D', cp, 11), W / 2, 820);
+    ctx.fillText(scramble(`${NP.toLocaleString('en')} POINTS  →  PORTRAIT`, cp, 11), W / 2, 1000);
     ctx.letterSpacing = '0px'; ctx.textAlign = 'left';
   }
 }
 
 /* ============================================================
-   SCENE 5 — RHYTHM GRID (7.5 – 9.0)
+   SCENE 5 — PORTRAIT: PAINTING → DE STIJL tile flip (7.5 – 9.0)
    ============================================================ */
 function s5(ctx, t) {
-  bg(ctx, C.blue);
-  const T = 80, cols = 24, rows = 14, oy = (H - rows * T) / 2;
-  const beats = [7.5, 8.0, 8.5];
-  const outP = E.inExpo(prog(t, 8.74, 9.0));
-  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-    const x = c * T + T / 2, y = oy + r * T + T / 2;
-    const d = Math.hypot(x - W / 2, y - H / 2) / T;
-    const a = E.outBack(prog(t, 7.5 + d * 0.011, 7.5 + d * 0.011 + 0.3), 2);
-    let f = 0;
-    for (const b of beats) {
-      if (t < b) continue;
-      const R = (t - b) * 44;
-      f += Math.exp(-((d - R) ** 2) / 4.5) * Math.exp(-(t - b) * 1.2);
-    }
-    f = clamp(f);
-    const size = lerp(12, 70, f) * a * (1 - outP);
-    if (size < 0.5) continue;
-    ctx.save(); ctx.translate(x, y); ctx.rotate(f * Math.PI / 2 + outP * Math.PI);
-    ctx.fillStyle = f > 0.55 ? C.red : C.cream;
-    if ((r + c) % 2 && f > 0.2) { ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, TAU); ctx.fill(); }
-    else ctx.fillRect(-size / 2, -size / 2, size, size);
-    ctx.restore();
+  bg(ctx, C.ink);
+  let z = 1 + 0.04 * prog(t, 7.3, 9.0);
+  for (const b of [8.0, 8.5]) if (t >= b) z += 0.018 * Math.exp(-(t - b) * 10);
+  ctx.save(); ctx.translate(FACE[0], FACE[1]); ctx.scale(z, z); ctx.translate(-FACE[0], -FACE[1]);
+  ctx.drawImage(IMG.paint, 0, 0);
+  const T = 120;
+  for (let r = 0; r < 9; r++) for (let c = 0; c < 16; c++) {
+    const x = c * T, y = r * T;
+    const d = Math.hypot(x + T / 2 - FACE[0], y + T / 2 - FACE[1]) / T;
+    const p = prog(t, 8.0 + d * 0.042, 8.0 + d * 0.042 + 0.28);
+    if (p <= 0) continue;
+    const e = E.ioC(p), sx = Math.abs(Math.cos(Math.PI * e));
+    const src = e < 0.5 ? IMG.paint : IMG.mond;
+    ctx.fillStyle = C.ink; ctx.fillRect(x, y, T, T);
+    const lift = 1 + 0.12 * Math.sin(Math.PI * e);
+    const w = T * sx * lift, h = T * lift;
+    ctx.drawImage(src, x, y, T, T, x + (T - w) / 2, y + (T - h) / 2, w, h);
+    if (e > 0 && e < 1) { ctx.fillStyle = `rgba(0,0,0,${(1 - sx) * 0.45})`; ctx.fillRect(x + (T - w) / 2, y + (T - h) / 2, w, h); }
   }
-  // beat counter
-  let bi = -1; for (let i = 0; i < 3; i++) if (t >= beats[i]) bi = i;
-  if (bi >= 0) {
-    const lt = t - beats[bi];
-    const s = (1 + 0.35 * Math.exp(-lt * 14)) * (1 - outP);
-    ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(s, s);
-    ctx.fillStyle = C.ink; ctx.beginPath(); ctx.arc(0, 0, 250, 0, TAU); ctx.fill();
-    font(ctx, 800, 300, F.disp); ctx.fillStyle = C.cream; ctx.textAlign = 'center';
-    ctx.fillText(String(bi + 1), 0, 108);
-    ctx.restore(); ctx.textAlign = 'left';
+  ctx.restore();
+  // caption pill
+  const cp = prog(t, 8.45, 8.75);
+  if (cp > 0) {
+    const e = E.outExpo(cp);
+    ctx.fillStyle = C.ink; ctx.fillRect(56, 900, 560 * e, 64);
+    font(ctx, 500, 22, F.mono); ctx.fillStyle = C.cream; ctx.letterSpacing = '6px';
+    ctx.fillText(scramble('PAINTING  →  DE STIJL', cp, 51), 84, 941);
+    ctx.letterSpacing = '0px';
   }
+  // Mondrian-coloured bars sweep into the next scene
+  [C.red, C.yellow, C.blue, C.cream].forEach((col, i) => {
+    const p = E.ioExpo(prog(t, 8.74 + i * 0.03, 8.74 + i * 0.03 + 0.16));
+    if (p > 0) { ctx.fillStyle = col; ctx.fillRect(W - (W + 40) * p, -50, W + 400, H + 100); }
+  });
 }
 
 /* ============================================================
-   SCENE 6 — THE PRINCIPLES (9.0 – 11.5)
+   SCENE 6 — KEY VISUALS: "Motomura creative" posters (9.0 – 11.5)
    ============================================================ */
-const CARDS = [
-  { w: 'ANTICIPATION', jp: '予備動作', bg: C.red, fg: C.ink },
-  { w: 'SQUASH & STRETCH', jp: '潰しと伸ばし', bg: C.cream, fg: C.ink },
-  { w: 'OVERSHOOT', jp: 'オーバーシュート', bg: C.blue, fg: C.cream },
-  { w: 'FOLLOW THROUGH', jp: 'フォロースルー', bg: C.ink, fg: C.cream },
-  { w: 'SPACING', jp: 'スペーシング', bg: C.yellow, fg: C.ink },
+const CARD_KEYS = [
+  [[0, 960, 1750, -0.35, 1], [9.0, 960, 540, -0.03, 1], [9.5, 560, 570, -0.12, 0.84], [10.0, 430, 590, -0.16, 0.76], [10.5, 500, 560, -0.1, 0.66]],
+  [[0, 2700, 480, 0.4, 1], [9.5, 1000, 540, 0.03, 1], [10.0, 1480, 580, 0.12, 0.8], [10.56, 1420, 560, 0.1, 0.66]],
+  [[0, -800, 600, -0.4, 1], [10.0, 960, 540, -0.02, 1], [10.62, 960, 540, 0, 0.72]],
 ];
-function s6(ctx, t) {
-  const k = Math.min(4, Math.floor((t - 9) / 0.5)), lt = t - 9 - k * 0.5;
-  const cd = CARDS[k];
-  bg(ctx, cd.bg);
-  const size = fitSize(ctx, cd.w, 800, F.disp, 1640, 210);
-  font(ctx, 800, size, F.disp);
-  const L = layout(ctx, cd.w, 0);
-  const x0 = (W - L.width) / 2, base = H / 2 + size * 0.36;
-  ctx.fillStyle = cd.fg;
-
-  if (k === 0) { // anticipation: pull back, then launch
-    const X = lt2 => lerp(-1900, 0, E.ioBack(prog(lt2, 0, 0.36)));
-    const x = X(lt), v = (X(lt) - X(lt - 0.012)) / 0.012;
-    ctx.save(); ctx.translate(x0 + x, base); ctx.transform(1, 0, clamp(-v / 16000, -0.5, 0.5), 1, 0, 0);
-    ctx.fillText(cd.w, 0, 0); ctx.restore();
-  } else if (k === 1) { // squash & stretch
-    let sy, y;
-    if (lt < 0.16) { const p = lt / 0.16; y = lerp(-900, 0, p * p); sy = lerp(1, 1.55, p); }
-    else { const u = lt - 0.16; y = 0; sy = 1 - 0.45 * Math.exp(-u * 11) * Math.cos(u * 34); }
-    const sx = 1 / Math.sqrt(sy);
-    ctx.save(); ctx.translate(W / 2, base + y + size * 0.08); ctx.scale(sx, sy);
-    ctx.textAlign = 'center'; ctx.fillText(cd.w, 0, -size * 0.08); ctx.restore(); ctx.textAlign = 'left';
-    // ground shadow
-    const sh = clamp(1 + y / 900);
-    ctx.fillStyle = alpha(C.ink, 0.12 * sh);
-    ctx.beginPath(); ctx.ellipse(W / 2, base + 40, L.width / 2 * sx * sh, 16, 0, 0, TAU); ctx.fill();
-  } else if (k === 2) { // overshoot
-    const s = spring(lt, 21, 8);
-    ctx.save(); ctx.translate(W / 2, base - size * 0.36); ctx.scale(s, s); ctx.rotate((1 - s) * 0.25);
-    ctx.textAlign = 'center'; ctx.fillText(cd.w, 0, size * 0.36); ctx.restore(); ctx.textAlign = 'left';
-    // overshoot guide
-    ctx.strokeStyle = alpha(C.cream, 0.35); ctx.setLineDash([10, 10]); ctx.lineWidth = 2;
-    const gw = L.width / 2 * Math.max(1, s);
-    ctx.strokeRect(W / 2 - gw, base - size * 0.8 * Math.max(1, s), gw * 2, size * 0.95 * Math.max(1, s));
-    ctx.setLineDash([]);
-  } else if (k === 3) { // follow through: letters drag behind the leader
-    L.chars.forEach((c, i) => {
-      const lp = lt - i * 0.009;
-      const p = spring(lp, 20, 8);
-      const v = (spring(lp, 20, 8) - spring(lp - 0.01, 20, 8)) / 0.01;
-      ctx.save(); ctx.translate(x0 + c.x + (1 - p) * 1400, base);
-      ctx.transform(1, 0, clamp(v * 0.03, -0.6, 0.6), 1, 0, 0);
-      ctx.fillText(c.ch, 0, 0); ctx.restore();
-    });
-  } else { // spacing: letters spread + frame spacing chart
-    const e = E.outExpo(prog(lt, 0, 0.38));
-    L.chars.forEach(c => {
-      const x = lerp(W / 2 - c.w / 2, x0 + c.x, e);
-      ctx.fillText(c.ch, x, base);
-    });
-    const n = 16, cy = base + 110;
-    for (let i = 0; i <= n; i++) {
-      if (lt < i * 0.018) break;
-      const x = lerp(x0, x0 + L.width, E.ioC(i / n));
-      ctx.beginPath(); ctx.arc(x, cy, i === 0 || i === n ? 12 : 8, 0, TAU); ctx.fill();
-      font(ctx, 500, 14, F.mono); ctx.textAlign = 'center';
-      ctx.fillText(String(i).padStart(2, '0'), x, cy + 38); ctx.textAlign = 'left';
-    }
-    font(ctx, 800, size, F.disp);
+function cardState(keys, t) {
+  let st = keys[0].slice(1);
+  for (let i = 1; i < keys.length; i++) {
+    const [tk, ...v] = keys[i];
+    if (t < tk) break;
+    const e = spring(t - tk, 17, 8);
+    st = st.map((a, j) => lerp(a, v[j], e));
   }
-  // meta
-  font(ctx, 500, 20, F.mono); ctx.fillStyle = alpha(cd.fg, 0.75);
-  ctx.fillText(`PRINCIPLE 0${k + 1} / 05`, x0, base - size - 30);
-  font(ctx, 700, 34, F.jps); ctx.fillStyle = cd.fg; ctx.textAlign = 'right';
-  const jp = prog(lt, 0.05, 0.3);
-  ctx.globalAlpha = jp;
-  ctx.fillText(cd.jp, x0 + L.width, base + (k === 4 ? 200 : 80) + (1 - E.outC(jp)) * 20);
-  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  return st;
+}
+function s6(ctx, t) {
+  const dark = t >= 10.5;
+  bg(ctx, dark ? C.ink : C.cream);
+  const fg = dark ? C.cream : C.ink;
+  marquee(ctx, 'MOTOMURA CREATIVE — ', 190, 330, -520, t, fg, 0.14);
+  marquee(ctx, 'KEY VISUAL — EDITORIAL — ', 190, 950, 520, t, fg, 0.14);
+  const zoom = 1 + E.inExpo(prog(t, 11.05, 11.5)) * 2.4;
+  ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -H / 2);
+  const ch = 880, cw = ch * 1122 / 1402;
+  IMG.posters.forEach((img, i) => {
+    const [x, y, r, s] = cardState(CARD_KEYS[i], t);
+    if (x < -cw || x > W + cw || y > H + ch) return;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(r); ctx.scale(s, s);
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 26;
+    ctx.fillStyle = '#fff'; ctx.fillRect(-cw / 2, -ch / 2, cw, ch);
+    ctx.shadowColor = 'transparent';
+    ctx.drawImage(img, -cw / 2, -ch / 2, cw, ch);
+    ctx.restore();
+  });
+  ctx.restore();
+  font(ctx, 500, 20, F.mono); ctx.fillStyle = fg; ctx.letterSpacing = '6px';
+  ctx.fillText(scramble('KEY VISUAL / EDITORIAL DESIGN', prog(t, 9.0, 9.35), 61), 56, 130);
+  ctx.letterSpacing = '0px';
+  const cp = prog(t, 10.6, 10.95);
+  if (cp > 0) {
+    font(ctx, 800, 58, F.disp); ctx.fillStyle = C.cream; ctx.textAlign = 'center';
+    ctx.fillText(scramble('MOTOMURA CREATIVE', cp, 71), W / 2, 1000);
+    ctx.textAlign = 'left';
+  }
 }
 
 /* ============================================================
    SCENE 7 — REWIND STROBE (11.5 – 12.0)
    ============================================================ */
 let TMP, CH;
-const RECAP = [10.65, 9.8, 8.1, 7.2, 6.3, 4.6, 2.25, 0.9];
+const IMG = {};
+const RECAP = [10.85, 9.7, 8.45, 7.6, 7.15, 6.3, 4.6, 2.9];
 function rgbSplit(dst, src, off) {
   const g = CH.getContext('2d');
   bg(dst, '#000');
@@ -737,11 +727,11 @@ function s8(ctx, t) {
   ctx.fillText('モーションデザイナー', gx + RW, rule + 80 + (1 - jp) * 14);
   ctx.textAlign = 'left';
   font(ctx, 500, 22, F.mono); ctx.fillStyle = C.red; ctx.letterSpacing = '6px';
-  ctx.fillText(scramble('● SHOWREEL 2026', prog(t, 12.55, 13.0), 31), gx, base - size - 26);
+  ctx.fillText(scramble(`● ${NAME_EN}`, prog(t, 12.55, 13.0), 31), gx, base - size - 26);
   ctx.letterSpacing = '0px';
   font(ctx, 500, 18, F.mono); ctx.fillStyle = alpha(C.ink, 0.55); ctx.textAlign = 'center';
   ctx.letterSpacing = '8px';
-  ctx.fillText(scramble('KINETIC TYPE  ·  EASING  ·  3D  ·  RHYTHM  ·  CRAFT', prog(t, 12.9, 13.5), 41), W / 2, H - m - 20);
+  ctx.fillText(scramble('SHOWREEL 2026  ·  KINETIC TYPE  ·  3D  ·  PORTRAIT  ·  KEY VISUAL', prog(t, 12.9, 13.5), 41), W / 2, H - m - 20);
   ctx.letterSpacing = '0px'; ctx.textAlign = 'left';
 
   // seal stamp
@@ -792,10 +782,9 @@ function drawWorld(ctx, t) {
   const sh = shake(t);
   ctx.save(); ctx.translate(sh.x, sh.y); drawScene(ctx, t); ctx.restore();
 }
-const SECTIONS = [[0, '(00) IGNITION', C.cream], [1.5, '(01) KINETIC TYPE', C.ink], [2.5, '(01) KINETIC TYPE', C.cream],
-  [3.5, '(02) EASING / MORPH', C.ink], [5.5, '(03) 3D / PARTICLES', C.cream], [7.5, '(04) RHYTHM', C.cream],
-  [9.0, '(05) PRINCIPLES', C.ink], [9.5, '(05) PRINCIPLES', C.ink], [10.0, '(05) PRINCIPLES', C.cream],
-  [10.5, '(05) PRINCIPLES', C.cream], [11.0, '(05) PRINCIPLES', C.ink], [11.5, '(06) REWIND', C.cream], [12, '', C.ink]];
+const SECTIONS = [[0, '(00) IGNITION', C.cream], [1.5, '(01) KINETIC TYPE', C.ink], [2.5, '(01) KINETIC TYPE', C.ink],
+  [3.5, '(02) EASING / MORPH', C.ink], [5.5, '(03) 3D / PARTICLES', C.cream], [7.5, '(04) PORTRAIT / STYLE', C.cream],
+  [9.0, '(05) KEY VISUAL', C.ink], [10.5, '(05) KEY VISUAL', C.cream], [11.5, '(06) REWIND', C.cream], [12, '', C.ink]];
 function hud(ctx, t) {
   let sec = SECTIONS[0], secStart = 0;
   for (const s of SECTIONS) if (t >= s[0]) sec = s;
@@ -805,7 +794,7 @@ function hud(ctx, t) {
   const col = sec[2], m = 56;
   ctx.globalAlpha = a; ctx.fillStyle = col;
   font(ctx, 500, 17, F.mono); ctx.letterSpacing = '3px';
-  ctx.fillText(`${NAME}  —  MOTION REEL 2026`, m, m + 12);
+  ctx.fillText(`${NAME_EN}  /  ${NAME}  —  MOTION REEL 2026`, m, m + 12);
   const f = Math.floor(t * FPS + 1e-6);
   const tc = `00:00:${String(Math.floor(f / FPS)).padStart(2, '0')}:${String(f % FPS).padStart(2, '0')}`;
   ctx.textAlign = 'right'; ctx.fillText(`● REC  ${tc}`, W - m, m + 12);
@@ -856,6 +845,11 @@ async function init(canvas) {
   await document.fonts.ready;
   MAIN = canvas; MAIN.width = W; MAIN.height = H;
   WORK = mk(); ACC = mk(); TMP = mk(); CH = mk();
+  const load = src => new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ng; i.src = src; });
+  const [portrait, heli, ...posters] = await Promise.all(['img/portrait.png', 'img/heli.jpg', 'img/poster1.png', 'img/poster2.png', 'img/poster3.jpg'].map(load));
+  // the source stacks a painting (top) over its De Stijl remake (bottom); crop each to 16:9, faces aligned
+  const crop = sy => { const c = mk(), g = c.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(portrait, 0, sy, 1122, 631, 0, 0, W, H); return c; };
+  Object.assign(IMG, { heli, posters, paint: crop(50), mond: crop(705) });
   initGrain(); initTargets(); initSeal();
 }
 
