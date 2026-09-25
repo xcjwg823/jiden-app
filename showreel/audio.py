@@ -191,6 +191,18 @@ wood = lp(hp(noise(0.08), 900), 2500) * env(int(SR * 0.08), 0.0003, 0.015)
 add(wood, 13.5, 1.4, verb=0.5)
 add(bell(midi(69), 1.2), 13.5, 0.18, verb=1.0)
 
+# chaos layer: a UI pop per window, a boing per sticker
+i = 0
+while 0.4 + i * 0.14 < 14.6:
+    x = 0.4 + i * 0.14
+    f = 700 + 900 * rng.random()
+    tt = t_(0.05)
+    add(np.sin(2 * np.pi * f * tt * (1 + 2 * tt)) * np.exp(-tt * 70), x, 0.12, pan=rng.uniform(-0.8, 0.8))
+    i += 1
+for b in range(26):
+    tt = t_(0.25)
+    add(np.sin(2 * np.pi * np.cumsum(300 + 500 * np.exp(-tt * 18)) / SR) * np.exp(-tt * 12), 1.5 + b * 0.5 + 0.02, 0.1, pan=rng.uniform(-0.6, 0.6))
+
 # ---------- mix ----------
 # sidechain duck from the kick grid
 duck = np.ones(N); tt = np.arange(N) / SR

@@ -693,6 +693,7 @@ function initSeal() {
 }
 function s8(ctx, t) {
   bg(ctx, C.cream);
+  CHAOS.draw(ctx, t, true);
   const push = 1 + 0.03 * E.outC(prog(t, 12.0, 15.0));
   ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(push, push); ctx.translate(-W / 2, -H / 2);
 
@@ -709,6 +710,19 @@ function s8(ctx, t) {
   const NL = layout(ctx, DISP, sp);
   const gap = 60, sealS = 160;
   const gx = (W - (NL.width + gap + sealS)) / 2, base = 560, rule = 624;
+  // PROFILE window: the one calm spot in the chaos
+  {
+    const pp = E.outBack(prog(t, 12.0, 12.3), 1.4);
+    const px = gx - 70, py = base - size - 110, pw = NL.width + gap + sealS + 140, ph = rule + 200 - py;
+    ctx.save(); ctx.translate(px + pw / 2, py + ph / 2); ctx.scale(pp, pp); ctx.translate(-pw / 2, -ph / 2);
+    ctx.fillStyle = C.ink; ctx.fillRect(14, 14, pw, ph);
+    ctx.fillStyle = C.cream; ctx.fillRect(0, 0, pw, ph);
+    ctx.fillStyle = C.ink; ctx.fillRect(0, 0, pw, 40);
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 4; ctx.strokeRect(0, 0, pw, ph);
+    font(ctx, 500, 18, F.mono); ctx.fillStyle = C.cream; ctx.fillText('■ PROFILE.exe', 16, 27);
+    ctx.fillStyle = C.red; for (let b = 0; b < 3; b++) ctx.fillRect(pw - 30 - b * 24, 13, 14, 14);
+    ctx.restore();
+  }
   ctx.save();
   ctx.beginPath(); ctx.rect(0, base - size * 1.1, W, size * 1.1 + 34); ctx.clip();
   NL.chars.forEach((c, i) => {
@@ -725,15 +739,17 @@ function s8(ctx, t) {
   ctx.fillStyle = C.ink; ctx.fillRect(gx, rule, RW * rp, 3);
   ctx.fillStyle = C.red; ctx.fillRect(gx, rule - 2, 90 * E.outExpo(prog(t, 12.4, 12.8)), 7);
   // title / meta
-  font(ctx, 400, 38, F.disp); ctx.fillStyle = C.ink; ctx.letterSpacing = '10px';
-  ctx.fillText(scramble('FLIGHT DOCTOR', prog(t, 12.4, 12.9), 21), gx, rule + 78);
-  ctx.fillText(scramble('EMERGENCY PHYSICIAN', prog(t, 12.55, 13.1), 22), gx, rule + 134);
-  ctx.letterSpacing = '0px';
-  font(ctx, 700, 26, F.jps); ctx.textAlign = 'right';
-  const jp = E.outC(prog(t, 12.8, 13.2));
-  ctx.fillStyle = alpha(C.ink, 0.6 * jp);
-  ctx.fillText('フライトドクター ／ 救急科医', gx + RW, rule + 76 + (1 - jp) * 14);
-  ctx.textAlign = 'left';
+  {
+    const jsz = 76; font(ctx, 400, jsz, F.jp);
+    const JL = layout(ctx, '救命救急医師', 14);
+    ctx.save(); ctx.beginPath(); ctx.rect(0, rule + 10, W, jsz * 1.3); ctx.clip();
+    JL.chars.forEach((c, i) => {
+      const e = E.outExpo(prog(t, 12.4 + i * 0.06, 12.4 + i * 0.06 + 0.5));
+      ctx.fillStyle = i < 4 ? C.red : C.ink;
+      ctx.fillText(c.ch, gx + c.x, rule + 22 + jsz * 0.88 + (1 - e) * jsz * 1.2);
+    });
+    ctx.restore();
+  }
   font(ctx, 500, 22, F.mono); ctx.fillStyle = C.red; ctx.letterSpacing = '6px';
   ctx.fillText(scramble(`● ${NAME}`, prog(t, 12.55, 13.0), 31), gx, base - size - 30);
   ctx.letterSpacing = '0px';
@@ -789,7 +805,7 @@ function drawScene(ctx, t) {
 }
 function drawWorld(ctx, t) {
   const sh = shake(t);
-  ctx.save(); ctx.translate(sh.x, sh.y); drawScene(ctx, t); ctx.restore();
+  ctx.save(); ctx.translate(sh.x, sh.y); drawScene(ctx, t); if (t < 12) CHAOS.draw(ctx, t); ctx.restore();
 }
 const SECTIONS = [[0, '(00) VITALS', C.cream], [1.5, '(01) EMERGENCY', C.ink], [2.5, '(01) EMERGENCY', C.ink],
   [3.5, '(02) THREE PILLARS', C.cream], [5.0, '(03) DOCTOR-HELI', C.cream], [7.0, '(04) ON THE FRONT LINE', C.cream],
@@ -804,7 +820,7 @@ function hud(ctx, t) {
   const col = sec[2], m = 56;
   ctx.globalAlpha = a; ctx.fillStyle = col;
   font(ctx, 500, 17, F.mono); ctx.letterSpacing = '3px';
-  ctx.fillText(`${NAME_EN}  /  ${NAME}  —  FLIGHT DOCTOR`, m, m + 12);
+  ctx.fillText(`${NAME_EN}  /  ${NAME}  —  救命救急医師`, m, m + 12);
   const f = Math.floor(t * FPS + 1e-6);
   const tc = `00:00:${String(Math.floor(f / FPS)).padStart(2, '0')}:${String(f % FPS).padStart(2, '0')}`;
   ctx.textAlign = 'right'; ctx.fillText(`♥ HR 120   SpO₂ 98%   ● ${tc}`, W - m, m + 12);

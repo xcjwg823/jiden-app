@@ -3,6 +3,7 @@
 救急医療・ドクターヘリ・災害医療を伝える 15秒 / 1920×1080 / 60fps のショーリール。
 
 - `showreel.mp4` — 完成動画（H.264 + AAC）
+- `chaos.js` — 情報過多レイヤー（Notionの経歴・資格・論文・講演・災害対応・受賞・Q&A100問を、ポップアップ／テロップ／ステッカーで全編に敷き詰める。家族・住所・連絡先などの個人情報は含めない）
 - `index.html` + `reel.js` — アニメーション本体。`python3 -m http.server` で配信し、ブラウザで開いて ▶ PLAY でリアルタイム再生
 - `img/` — 使用素材（ドクターヘリ写真、EMERGENCY レーン、HOKUSOH HEMS、ポートレート、Motomura creative ポスター、Hokusoh Shock & Trauma Center）
 - `audio.py` — サウンドトラックを数式で合成（全ヒットが映像のカットに同期）
@@ -19,7 +20,7 @@
 | 8.5–10.5 | DISASTER MEDICINE — ポスター3点がビートごとに飛び込み扇状に展開 |
 | 10.5–11.5 | TEAM — Hokusoh Shock & Trauma Center「チームで、命をつなぐ。」 |
 | 11.5–12.0 | REWIND — RGBずれのストロボ・リキャップ |
-| 12.0–15.0 | END CARD — Tomokazu Motomura / Flight Doctor / Emergency Physician と落款 |
+| 12.0–15.0 | END CARD — PROFILE.exe ウィンドウに Tomokazu Motomura / 救命救急医師 と落款 |
 
 ## 再レンダリング
 ```sh
