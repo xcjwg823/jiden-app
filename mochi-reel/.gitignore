@@ -1,0 +1,6 @@
+snap/
+cs*.jpg
+node_modules
+render.log
+video.mp4
+audio.wav
