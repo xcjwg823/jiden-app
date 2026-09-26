@@ -16,7 +16,8 @@ if (mode === 'snap') {
   for (const t of rest.map(Number)) fs.writeFileSync(`snap/${t.toFixed(2)}.png`, await grab(t, 1));
 } else {
   const ff = spawn(process.env.FFMPEG, ['-y','-f','image2pipe','-framerate','30','-i','-','-c:v','libx264','-preset','slow','-crf','16','-pix_fmt','yuv420p','video.mp4'], { stdio: ['pipe','inherit','inherit'] });
-  for (let f = 0; f < 450; f++) { const b = await grab(f / 30, 5); if (!ff.stdin.write(b)) await new Promise(r => ff.stdin.once('drain', r)); if (f % 50 === 0) console.log('frame', f); }
+  for (let f = 0; f < 450; f++) { const t = f / 30, TR = [[2.5,.32],[4.5,.16],[5,.16],[5.5,.16],[6,.16],[6.5,.16],[7,.16],[7.5,.16],[8,.34],[10.5,.3],[11,.16],[11.5,.16],[12.5,.45]];
+    const b = await grab(t, TR.some(([a,d]) => t >= a - .04 && t < a + d) ? 14 : 5); if (!ff.stdin.write(b)) await new Promise(r => ff.stdin.once('drain', r)); if (f % 50 === 0) console.log('frame', f); }
   ff.stdin.end(); await new Promise(r => ff.on('close', r));
 }
 await browser.close();
