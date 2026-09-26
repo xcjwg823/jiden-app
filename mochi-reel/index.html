@@ -27,10 +27,10 @@ const SCR = document.createElement('canvas'); SCR.width = W; SCR.height = H;
 let ctx = SCR.getContext('2d');
 
 const COL = {
-  cream: '#F7EFE4', mocha: '#4A3326', dark: '#2B1E17', pink: '#F4B6B0', pinkD: '#EE8C84',
-  sage: '#9DB58A', yolk: '#F6B026', tomato: '#E5503A', ig: '#4F5BD5', white: '#FFFDF9'
+  cream: '#F3EEE7', mocha: '#3A302A', dark: '#24201D', pink: '#D9C7BA', pinkD: '#B89484',
+  sage: '#8F9A7E', yolk: '#D6A45E', tomato: '#B5553F', ig: '#3A302A', white: '#FBF8F3', greige: '#E6DDD2'
 };
-const JP = "'Zen Maru Gothic'", DELA = "'Dela Gothic One'", SERIF = "'Fraunces'";
+const JP = "'Zen Maru Gothic'", DELA = JP, SERIF = "'Fraunces'";
 
 /* ---------- math ---------- */
 const cl = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
@@ -71,8 +71,35 @@ function heart(x, y, s, rot = 0) {
   ctx.fill(); ctx.restore();
 }
 
+function bokeh(u, n, col, seed, alpha = 1) {
+  for (let i = 0; i < n; i++) {
+    const x = hs(seed + i) * W + Math.sin(u * .7 + i) * 50, y = mod(hs(seed + i * 3) * H - u * 40 * (1 + hs(i + 1)), H + 400) - 200;
+    const r = 70 + hs(seed + i * 7) * 170, a = (.18 + .22 * hs(seed + i * 5)) * alpha * (.75 + .25 * Math.sin(u * 3 + i));
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${col},${a})`); g.addColorStop(.55, `rgba(${col},${a * .6})`); g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g; circ(x, y, r); ctx.fill();
+  }
+}
+// warm film light-leak that sweeps across the frame on every cut
+function leak(k, seed) {
+  if (k <= 0 || k >= 1) return;
+  const a = .65 * Math.sin(k * PI) ** 1.5, dir = seed % 2 ? 1 : -1;
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter';
+  const x = 540 + dir * lerp(-900, 900, E.ioC(k)), y = 500 + hs(seed) * 900;
+  let g = ctx.createRadialGradient(x, y, 0, x, y, 1100);
+  g.addColorStop(0, `rgba(255,226,185,${.75 * a})`); g.addColorStop(.35, `rgba(235,170,110,${.4 * a})`); g.addColorStop(1, 'rgba(200,120,70,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const x2 = 540 - dir * lerp(-700, 700, k), y2 = H - y;
+  g = ctx.createRadialGradient(x2, y2, 0, x2, y2, 600);
+  g.addColorStop(0, `rgba(255,240,220,${.45 * a})`); g.addColorStop(1, 'rgba(255,240,220,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // thin anamorphic streak
+  ctx.fillStyle = `rgba(255,236,210,${.5 * a})`; ctx.fillRect(0, y - 3, W, 6);
+  ctx.restore();
+}
+
 /* ---------- type ---------- */
-function txt(s, x, y, size, { font = DELA, weight = '', italic = '', color = '#fff', align = 'center', stroke = null, sw = 0, alpha = 1, ls = 0 } = {}) {
+function txt(s, x, y, size, { font = DELA, weight = '900', italic = '', color = '#fff', align = 'center', stroke = null, sw = 0, alpha = 1, ls = 0 } = {}) {
   ctx.save(); ctx.globalAlpha *= alpha;
   ctx.font = `${italic} ${weight} ${size}px ${font}`; ctx.textAlign = align; ctx.textBaseline = 'middle';
   ctx.letterSpacing = ls + 'px';
@@ -82,7 +109,7 @@ function txt(s, x, y, size, { font = DELA, weight = '', italic = '', color = '#f
 // per-character kinetic type
 function kin(str, x, y, t, o = {}) {
   if (t <= 0) return;
-  const { size = 100, font = DELA, weight = '', italic = '', color = '#fff', stroke = null, sw = 0,
+  const { size = 100, font = DELA, weight = '900', italic = '', color = '#fff', stroke = null, sw = 0,
     st = .035, dur = .3, mode = 'pop', ls = 0, maxW = 0, shadow = null, alpha = 1 } = o;
   ctx.save(); ctx.globalAlpha *= alpha;
   ctx.font = `${italic} ${weight} ${size}px ${font}`;
@@ -168,9 +195,9 @@ function mochi(cx, by, w, h, { face = 0, blink = 0, mood = 'calm', surprise = 0,
   // leaf
   if (leaf > 0) {
     ctx.save(); ctx.translate(cx + w * .06, by - h + 6); ctx.rotate(Math.sin(t * 5) * .15); ctx.scale(leaf, leaf);
-    ctx.fillStyle = '#8DB36A';
+    ctx.fillStyle = '#8F9A7E';
     ell(-26, -30, 34, 16, -.7); ctx.fill(); ell(24, -36, 38, 17, .6); ctx.fill();
-    ctx.strokeStyle = '#6E9650'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(2, -20, 18, -34); ctx.stroke();
+    ctx.strokeStyle = '#6F7A60'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(2, -20, 18, -34); ctx.stroke();
     ctx.restore();
   }
   // face
@@ -187,7 +214,7 @@ function mochi(cx, by, w, h, { face = 0, blink = 0, mood = 'calm', surprise = 0,
       }
     }
     // blush
-    ctx.fillStyle = `rgba(244,150,140,${.55 * face})`;
+    ctx.fillStyle = `rgba(214,150,135,${.5 * face})`;
     ell(cx - w * .27, by - h * .33, w * .07, h * .035); ctx.fill(); ell(cx + w * .27, by - h * .33, w * .07, h * .035); ctx.fill();
     // mouth
     ctx.lineWidth = Math.max(3, w * .014); ctx.beginPath();
@@ -301,13 +328,13 @@ function toppings(kind, R, u) {
   }
 }
 const REC = [
-  { bg: '#FFD95A', soup: '#FFF1C9', top: 'ねぎ塩', name: '豚レモン鍋', badge: ['10', '分'], kind: 'lemon' },
-  { bg: '#E5503A', soup: '#F6B18F', top: '−19KG痩せた', name: 'トマチー鍋', badge: ['10', '分'], kind: 'tomato' },
-  { bg: '#A6C47D', soup: '#EEF3E2', top: '脂肪ドバドバ', name: 'リボンサラダ', badge: ['8', '分'], kind: 'ribbon' },
-  { bg: '#E9CFA9', soup: '#EADBC2', top: '腸内もスッキリ整う', name: '梅とろろ蕎麦', badge: null, kind: 'soba' },
-  { bg: '#F2B8A8', soup: '#EAD5B2', top: '韓国の夏大バズり', name: 'コングクス', badge: ['10', '分'], kind: 'kong' },
-  { bg: '#5E3B28', soup: '#F4EADD', top: '極上の', name: 'チョコフレーク', badge: ['5', '分'], kind: 'choco' },
-  { bg: '#5A3A6B', soup: '#C9412E', top: 'とろっとろが癖になる', name: 'ナスビアータ', badge: ['3', '品'], kind: 'nasu' },
+  { img: 4, bg: '#FFD95A', soup: '#FFF1C9', top: 'ねぎ塩', name: '豚レモン鍋', badge: ['10', '分'], kind: 'lemon' },
+  { img: 7, bg: '#E5503A', soup: '#F6B18F', top: '−19KG痩せた', name: 'トマチー鍋', badge: ['10', '分'], kind: 'tomato' },
+  { img: 2, bg: '#A6C47D', soup: '#EEF3E2', top: '脂肪ドバドバ', name: 'リボンサラダ', badge: ['8', '分'], kind: 'ribbon' },
+  { img: 13, bg: '#E9CFA9', soup: '#EADBC2', top: '腸内もスッキリ整う', name: '梅とろろ蕎麦', badge: null, kind: 'soba' },
+  { img: 19, bg: '#F2B8A8', soup: '#EAD5B2', top: '韓国の夏大バズり', name: 'コングクス', badge: ['10', '分'], kind: 'kong' },
+  { img: 8, bg: '#5E3B28', soup: '#F4EADD', top: '極上の', name: 'チョコフレーク', badge: ['5', '分'], kind: 'choco' },
+  { img: 1, bg: '#5A3A6B', soup: '#C9412E', top: 'とろっとろが癖になる', name: 'ナスビアータ', badge: ['3', '品'], kind: 'nasu' },
 ];
 function bowl(cx, cy, r, d, u) {
   if (r <= 1) return;
@@ -344,19 +371,17 @@ function blinkAt(u, times) { let b = 0; for (const t0 of times) { const k = (u -
 
 // 0 — INTRO: mochi drops, squashes, says hi
 function sIntro(u) {
-  bg('#F7EFE4');
+  bg(COL.cream);
   const rk = E.outExpo(P(u, .5, 1.3));
-  if (rk > 0) {
-    ctx.save(); ctx.translate(540, 1180); ctx.rotate(u * .25); ctx.fillStyle = 'rgba(244,182,176,.32)';
-    for (let i = 0; i < 18; i++) { const a = i / 18 * TAU; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 1700 * rk, a, a + PI / 18); ctx.closePath(); ctx.fill(); }
-    ctx.restore();
-  }
+  const gl = ctx.createRadialGradient(540, 1150, 0, 540, 1150, 1100 * rk + 1);
+  gl.addColorStop(0, 'rgba(214,164,94,.28)'); gl.addColorStop(1, 'rgba(214,164,94,0)'); ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
+  bokeh(u, 9, '214,170,110', 11, rk);
   const ma = E.outC(P(u, .45, 1.1));
   marquee('MOCHI — MOCHI — ', 250, 210, 160, u, { stroke: COL.mocha, sw: 3, alpha: .22 * ma, rot: -.08 });
   marquee('DIET RECIPE — BEAUTY — ', 1720, 150, -200, u, { stroke: COL.mocha, sw: 3, alpha: .22 * ma, rot: -.08 });
 
   // title + subtitle (behind mascot)
-  kin('もち', 540, 600, u - .62, { size: 330, mode: 'drop', color: COL.mocha, st: .09, dur: .5, shadow: 'rgba(238,140,132,.55)' });
+  kin('もち', 540, 600, u - .62, { size: 330, mode: 'drop', color: COL.mocha, st: .09, dur: .5, shadow: 'rgba(184,148,132,.35)' });
   pill(540, 860, '食事で2桁痩せた美容体重レシピ', P(u, 1.0, 1.35), { size: 52, bg: COL.mocha, fg: COL.cream });
   txt('@mochi_diet_bichou', 540, 1520, 46, { font: JP, weight: 900, color: COL.mocha, alpha: P(u, 1.3, 1.6), ls: 2 });
 
@@ -371,11 +396,11 @@ function sIntro(u) {
   // impact ring + kinako splash
   const tau = u - .5;
   if (tau > 0 && tau < .7) {
-    const k = P(tau, 0, .6); ctx.strokeStyle = `rgba(238,140,132,${1 - k})`; ctx.lineWidth = 16 * (1 - k) + 2;
+    const k = P(tau, 0, .6); ctx.strokeStyle = `rgba(184,148,132,${1 - k})`; ctx.lineWidth = 16 * (1 - k) + 2;
     ell(540, 1336, E.outC(k) * 640, E.outC(k) * 150); ctx.stroke();
   }
   if (tau > 0 && tau < 1) {
-    const pc = [COL.pink, COL.yolk, COL.sage, '#D9B98C'];
+    const pc = [COL.pinkD, COL.yolk, COL.sage, '#D9C7BA'];
     for (let i = 0; i < 26; i++) {
       const a = -PI * (.08 + .84 * hs(i)), sp = 700 + 1000 * hs(i + 9);
       const x = 540 + Math.cos(a) * sp * tau, y = 1320 + Math.sin(a) * sp * tau + 2200 * tau * tau;
@@ -385,7 +410,7 @@ function sIntro(u) {
   mochi(540, by, w, h, { face: E.outBack(P(u, .78, 1.02), 3), blink: blinkAt(u, [1.75]), surprise: s * 3, leaf: E.outBack(P(u, .9, 1.15), 3), t: u });
   // onomatopoeia
   ctx.save(); ctx.translate(835, 1010); ctx.rotate(.18);
-  kin('ぽよん', 0, 0, u - .5, { size: 104, color: COL.pinkD, stroke: COL.mocha, sw: 14, st: .05, dur: .25, alpha: 1 - P(u, 1.35, 1.55) });
+  kin('ぽよん', 0, 0, u - .5, { size: 104, color: COL.pinkD, stroke: '#fff', sw: 12, st: .05, dur: .25, alpha: 1 - P(u, 1.35, 1.55) });
   ctx.restore();
 }
 
@@ -405,19 +430,19 @@ function tape(y, rot, col, k, t, { text = null, speed = 200, ticks = false, dir 
       if (mod(n, 10) === 0) ctx.fillText(String(mod(n, 200)), x + 8, 30);
     }
   }
-  if (text) { ctx.restore(); marquee(text, 0, 0, speed, t, { fill: fg, font: `64px ${DELA}` }); ctx.save(); }
+  if (text) { ctx.restore(); marquee(text, 0, 0, speed, t, { fill: fg, font: `900 64px ${DELA}` }); ctx.save(); }
   ctx.restore();
 }
 function tapeText(y, rot, col, k, t, text, speed, dir, fg) {
   if (k <= 0) return;
   ctx.save(); ctx.translate((1 - E.outQ(k)) * 1700 * dir, 0);
   ctx.save(); ctx.translate(540, y); ctx.rotate(rot); ctx.fillStyle = col; ctx.fillRect(-1100, -62, 2200, 124); ctx.restore();
-  marquee(text, y, 0, speed, t, { fill: fg, font: `60px ${DELA}`, rot });
+  marquee(text, y, 0, speed, t, { fill: fg, font: `900 60px ${DELA}`, rot });
   ctx.restore();
 }
 function roller(chars, x, y, size, col) {
   // chars: [{pos, alpha}] for odometer digits; strings drawn statically
-  ctx.save(); ctx.font = `${size}px ${DELA}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
+  ctx.save(); ctx.font = `900 ${size}px ${DELA}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col;
   const lh = size * 1.05, dw = ctx.measureText('0').width * .92;
   const widths = chars.map(c => typeof c === 'string' ? ctx.measureText(c).width * .9 : dw);
   let cx = x - widths.reduce((a, b) => a + b, 0) / 2;
@@ -438,11 +463,12 @@ function roller(chars, x, y, size, col) {
 function sScale(u) {
   bg(COL.dark);
   const gl = ctx.createRadialGradient(540, 1010, 50, 540, 1010, 900);
-  gl.addColorStop(0, 'rgba(244,182,176,.22)'); gl.addColorStop(1, 'rgba(244,182,176,0)');
+  gl.addColorStop(0, 'rgba(214,164,94,.22)'); gl.addColorStop(1, 'rgba(214,164,94,0)');
   ctx.fillStyle = gl; ctx.fillRect(0, 0, W, H);
+  bokeh(u, 10, '214,164,94', 77, .8);
 
-  tapeText(300, .09, COL.pink, P(u, .02, .4), u, '食事だけで2桁痩せた ✦ ', -260, -1, COL.dark);
-  tape(1760, -.11, '#F6C343', P(u, .12, .5), u, { ticks: true, speed: 320, dir: 1 });
+  tapeText(300, .09, COL.greige, P(u, .02, .4), u, '食事だけで2桁痩せた ✦ ', -260, -1, COL.dark);
+  tape(1760, -.11, COL.yolk, P(u, .12, .5), u, { ticks: true, speed: 320, dir: 1 });
 
   kin('＼ 運動なし・1年で ／', 540, 540, u - .12, { size: 66, font: JP, weight: 900, color: COL.cream, st: .025, dur: .25, mode: 'slide' });
 
@@ -473,7 +499,7 @@ function sScale(u) {
   // punch fx
   if (u > 1.3) {
     const k = P(u, 1.3, 1.85);
-    ctx.strokeStyle = `rgba(246,176,38,${1 - k})`; ctx.lineWidth = 20 * (1 - k); circ(540, 1010, 460 + E.outC(k) * 500); ctx.stroke();
+    ctx.strokeStyle = `rgba(214,164,94,${1 - k})`; ctx.lineWidth = 20 * (1 - k); circ(540, 1010, 460 + E.outC(k) * 500); ctx.stroke();
     ctx.fillStyle = COL.yolk;
     for (let i = 0; i < 12; i++) { const a = i / 12 * TAU + .2, d = 470 + E.outC(k) * 260; ctx.globalAlpha = 1 - k; star4(540 + Math.cos(a) * d, 1010 + Math.sin(a) * d, 30 * (1 - k * .5), k * 3); }
     ctx.globalAlpha = 1;
@@ -484,17 +510,19 @@ function sScale(u) {
 
 // 2..8 — RECIPE RAPID-FIRE
 function sRecipe(i, u) {
-  const d = REC[i]; bg(d.bg);
-  ctx.save(); ctx.globalAlpha = .1; ctx.fillStyle = '#fff'; ctx.translate(540, 960); ctx.rotate(-.5);
-  for (let x = -1800; x < 1800; x += 170) ctx.fillRect(x + mod(u * 340, 170), -1700, 70, 3400);
-  ctx.restore();
+  const d = REC[i]; bg(COL.dark);
+  if (BLUR[i]) { ctx.save(); const z = 1.1 + u * .12; ctx.translate(540, 960); ctx.scale(z, z); ctx.drawImage(BLUR[i], -540, -960, 1080, 1920); ctx.restore(); }
+  ctx.fillStyle = 'rgba(36,32,29,.34)'; ctx.fillRect(0, 0, W, H);
+  const vg = ctx.createRadialGradient(540, 1100, 300, 540, 1000, 1300);
+  vg.addColorStop(0, 'rgba(36,32,29,0)'); vg.addColorStop(1, 'rgba(36,32,29,.55)'); ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  bokeh(u, 7, '255,214,160', 30 + i * 9, .9);
   const bk = E.outBack(P(u, 0, .26), 1.7);
   ctx.save(); ctx.translate(540, 1200); ctx.rotate(u * .9 + i); ctx.globalAlpha = .85 * P(u, .04, .18);
-  ringText('MOCHI RECIPE • BEAUTY DIET • MOCHI RECIPE • BEAUTY DIET • ', 470, 40, 'rgba(255,255,255,.95)');
+  ringText('MOCHI RECIPE • BEAUTY DIET • MOCHI RECIPE • BEAUTY DIET • ', 470, 40, 'rgba(255,248,238,.6)');
   ctx.restore();
   bowl(540, 1200, 370 * bk, d, u);
-  kin('＼' + d.top + '／', 540, 555, u - .02, { size: 62, font: JP, weight: 900, color: '#fff', stroke: '#3A2A20', sw: 12, st: .012, dur: .18, maxW: 940, mode: 'slide' });
-  kin(d.name, 540, 700, u - .05, { size: 156, color: '#fff', stroke: '#3A2A20', sw: 20, st: .03, dur: .22, maxW: 1000, shadow: 'rgba(0,0,0,.22)' });
+  kin('＼' + d.top + '／', 540, 555, u - .02, { size: 62, font: JP, weight: 900, color: '#fff', shadow: 'rgba(0,0,0,.35)', st: .012, dur: .18, maxW: 940, mode: 'slide' });
+  kin(d.name, 540, 700, u - .05, { size: 156, color: '#fff', stroke: 'rgba(36,32,29,.55)', sw: 10, st: .03, dur: .22, maxW: 1000, shadow: 'rgba(0,0,0,.3)' });
   badge(190, 340, P(u, .06, .3), d.badge, u);
   // counter
   txt(`0${i + 1}`, 820, 330, 110, { font: SERIF, italic: 'italic', weight: 900, color: 'rgba(255,255,255,.9)' });
@@ -503,9 +531,9 @@ function sRecipe(i, u) {
 }
 
 // 9 — THE FEED: real posts + stats card
-let TILES = [];
+let TILES = [], BLUR = [];
 function sGrid(u) {
-  bg(COL.cream);
+  bg('#E9E2D8');
   ctx.save(); ctx.translate(540, 960); ctx.rotate(-.16);
   const zs = lerp(1.4, 1.0, E.outQ(P(u, 0, 1.3))); ctx.scale(zs, zs);
   const tw = 300, th = 400, g = 18, step = th + g;
@@ -524,7 +552,7 @@ function sGrid(u) {
   }
   ctx.restore();
   // veil
-  ctx.fillStyle = `rgba(247,239,228,${.62 * E.outC(P(u, .75, 1.05))})`; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = `rgba(243,238,231,${.6 * E.outC(P(u, .75, 1.05))})`; ctx.fillRect(0, 0, W, H);
 
   // title
   const tk = P(u, .1, .45);
@@ -539,9 +567,9 @@ function sGrid(u) {
     ctx.fillStyle = '#FFFFFF'; rr(-440, -300, 880, 620, 56); ctx.fill();
     // avatar with IG ring
     const cg = ctx.createConicGradient(u * 2, -270, -110);
-    cg.addColorStop(0, '#FEDA75'); cg.addColorStop(.3, '#FA7E1E'); cg.addColorStop(.55, '#D62976'); cg.addColorStop(.8, '#962FBF'); cg.addColorStop(1, '#FEDA75');
+    cg.addColorStop(0, '#E8C38A'); cg.addColorStop(.35, '#B89484'); cg.addColorStop(.7, '#8F9A7E'); cg.addColorStop(1, '#E8C38A');
     ctx.lineWidth = 14; ctx.strokeStyle = cg; circ(-270, -110, 126); ctx.stroke();
-    circ(-270, -110, 110); ctx.fillStyle = '#F4E6D8'; ctx.fill();
+    circ(-270, -110, 110); ctx.fillStyle = '#EDE5DA'; ctx.fill();
     ctx.save(); circ(-270, -110, 110); ctx.clip();
     mochi(-270, -30, 170, 140, { face: 1, blink: blinkAt(u, [1.9]), t: u, leaf: 1 });
     ctx.restore();
@@ -549,7 +577,7 @@ function sGrid(u) {
     const posts = Math.round(69 * E.outQ(P(u, 1.0, 1.9)));
     const fol = (1.6 * E.outQ(P(u, 1.05, 2.0))).toFixed(1);
     txt(String(posts), -25, -130, 92, { font: DELA, color: COL.mocha });
-    txt('投稿', -25, -48, 38, { font: JP, weight: 900, color: '#8A7768' });
+    txt('投稿', -25, -48, 38, { font: JP, weight: 900, color: '#9A8C80' });
     txt(fol + '万', 255, -130, 92, { font: DELA, color: COL.mocha });
     txt('フォロワー', 255, -48, 38, { font: JP, weight: 900, color: '#8A7768' });
     ctx.fillStyle = '#EFE6DC'; ctx.fillRect(-380, 105, 760, 4);
@@ -561,7 +589,7 @@ function sGrid(u) {
   for (let i = 0; i < 14; i++) {
     const t0 = 1.3 + hs(i + 500) * .8, k = P(u, t0, t0 + 1.1); if (k <= 0 || k >= 1) continue;
     const x = 540 + (hs(i + 510) - .5) * 900 + Math.sin(k * 8 + i) * 40, y = 1340 - E.outC(k) * 900;
-    ctx.globalAlpha = 1 - k; ctx.fillStyle = i % 3 ? COL.pinkD : '#E1306C';
+    ctx.globalAlpha = 1 - k; ctx.fillStyle = i % 3 ? COL.pinkD : '#fff';
     heart(x, y, 60 + hs(i + 520) * 50, (hs(i) - .5) * .6); ctx.globalAlpha = 1;
   }
 }
@@ -578,8 +606,9 @@ function speedLines(cx, cy, u, col, n = 36, r0 = 330) {
   ctx.globalAlpha = 1;
 }
 function sBusy(u) {
-  bg('#9DB58A');
-  speedLines(540, 1150, u, 'rgba(255,255,255,.7)');
+  bg(COL.sage);
+  bokeh(u, 6, '255,240,215', 5, .7);
+  speedLines(540, 1150, u, 'rgba(255,248,236,.45)');
   const k = E.outBack(P(u, 0, .25), 2);
   ctx.save(); ctx.translate(540, 1150); ctx.scale(k, k);
   circ(0, 0, 280); ctx.fillStyle = COL.cream; ctx.fill(); ctx.lineWidth = 22; ctx.strokeStyle = COL.mocha; ctx.stroke();
@@ -590,37 +619,37 @@ function sBusy(u) {
   circ(0, 0, 22); ctx.fillStyle = COL.mocha; ctx.fill();
   ctx.restore();
   kin('忙しいから', 540, 470, u - .02, { size: 96, font: JP, weight: 900, color: COL.mocha, st: .03, dur: .2, mode: 'slide' });
-  kin('パパッと!', 540, 660, u - .08, { size: 190, color: '#fff', stroke: COL.mocha, sw: 22, st: .035, dur: .2, shadow: 'rgba(74,51,38,.3)' });
+  kin('パパッと!', 540, 660, u - .08, { size: 190, color: '#fff', st: .035, dur: .2, shadow: 'rgba(36,32,29,.25)' });
 }
 function sOne(u) {
-  bg(COL.pink);
+  bg(COL.greige);
+  bokeh(u, 6, '214,164,94', 9, .8);
   ctx.save(); ctx.translate(430, 900); ctx.rotate(u * 1.2); ctx.setLineDash([4, 30]); ctx.lineCap = 'round'; ctx.lineWidth = 12; ctx.strokeStyle = '#fff';
   circ(0, 0, 400 * E.outBack(P(u, 0, .3), 2)); ctx.stroke(); ctx.restore();
   const k = E.outBack(P(u, 0, .22), 2.2);
   ctx.save(); ctx.translate(380, 930); ctx.scale(k, k); ctx.rotate((1 - k) * -.5);
+  ctx.shadowColor = 'rgba(58,48,42,.28)'; ctx.shadowBlur = 50; ctx.shadowOffsetY = 20;
   txt('1', 0, 0, 820, { font: SERIF, italic: 'italic', weight: 900, color: '#fff', stroke: COL.mocha, sw: 0 });
   ctx.restore();
   kin('品', 760, 860, u - .08, { size: 300, color: COL.mocha, dur: .22 });
   kin('でも', 770, 1090, u - .12, { size: 110, font: JP, weight: 900, color: COL.mocha, dur: .2 });
-  kin('食べて整う', 540, 1500, u - .15, { size: 128, color: '#fff', stroke: COL.mocha, sw: 18, st: .03, dur: .2 });
+  kin('食べて整う', 540, 1500, u - .15, { size: 128, color: COL.mocha, shadow: 'rgba(255,255,255,.6)', st: .03, dur: .2 });
 }
 function sBeauty(u) {
-  bg('#FFF4E2');
+  bg('#F1EAE0');
   const k = E.outC(P(u, 0, .35));
-  const gg = ctx.createRadialGradient(540, 960, 10, 540, 960, 900 * k + 1);
-  gg.addColorStop(0, 'rgba(246,176,38,.35)'); gg.addColorStop(1, 'rgba(246,176,38,0)'); ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
-  ctx.save(); ctx.translate(540, 960); ctx.rotate(u * .4); ctx.fillStyle = 'rgba(244,182,176,.35)';
-  for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 1600 * k, a, a + PI / 12); ctx.closePath(); ctx.fill(); }
-  ctx.restore();
+  const gg = ctx.createRadialGradient(540, 960, 10, 540, 960, 1000 * k + 1);
+  gg.addColorStop(0, 'rgba(214,164,94,.32)'); gg.addColorStop(1, 'rgba(214,164,94,0)'); ctx.fillStyle = gg; ctx.fillRect(0, 0, W, H);
+  bokeh(u, 10, '214,164,94', 61, k);
   // mirror
   const mk = E.outBack(P(u, 0, .3), 1.8);
   ctx.save(); ctx.translate(540, 960); ctx.scale(mk, mk);
-  ell(0, 0, 330, 450); ctx.fillStyle = '#F6C343'; ctx.fill();
+  ell(0, 0, 330, 450); ctx.fillStyle = '#C9A46A'; ctx.fill();
   ell(0, 0, 300, 420); const mg = ctx.createLinearGradient(-300, -420, 300, 420); mg.addColorStop(0, '#FFFFFF'); mg.addColorStop(1, '#F1E6DA'); ctx.fillStyle = mg; ctx.fill();
   ctx.save(); ell(0, 0, 300, 420); ctx.clip(); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.rotate(-.6); ctx.fillRect(-400 + mod(u * 900, 1200) - 300, -600, 60, 1200); ctx.fillRect(-300 + mod(u * 900, 1200) - 300, -600, 24, 1200); ctx.restore();
   ctx.restore();
   kin('健康', 540, 800, u - .1, { size: 230, color: COL.mocha, st: .06, dur: .25 });
-  kin('美人', 540, 1080, u - .2, { size: 230, color: COL.pinkD, stroke: COL.mocha, sw: 16, st: .06, dur: .25 });
+  kin('美人', 540, 1080, u - .2, { size: 230, color: COL.pinkD, st: .06, dur: .25 });
   kin('中から綺麗になるダイエット', 540, 1560, u - .3, { size: 60, font: JP, weight: 900, color: COL.mocha, st: .02, dur: .2, mode: 'slide' });
   ctx.fillStyle = COL.yolk;
   for (let i = 0; i < 16; i++) {
@@ -636,12 +665,13 @@ function sBeauty(u) {
 function sEnd(u) {
   bg(COL.cream);
   const bk = E.outC(P(u, 0, .6));
-  ctx.fillStyle = 'rgba(244,182,176,.55)'; circ(170 + Math.sin(u * 1.3) * 30, 380, 330 * bk); ctx.fill();
-  ctx.fillStyle = 'rgba(157,181,138,.45)'; circ(950, 1380 + Math.cos(u * 1.1) * 30, 360 * bk); ctx.fill();
-  ctx.fillStyle = 'rgba(246,195,67,.35)'; circ(960, 330, 150 * bk); ctx.fill();
-  marquee('MOCHI — DIET — RECIPE — BEAUTY — ', 1830, 70, 120, u, { fill: 'rgba(74,51,38,.8)' });
+  ctx.fillStyle = 'rgba(217,199,186,.7)'; circ(170 + Math.sin(u * 1.3) * 30, 380, 330 * bk); ctx.fill();
+  ctx.fillStyle = 'rgba(143,154,126,.35)'; circ(950, 1380 + Math.cos(u * 1.1) * 30, 360 * bk); ctx.fill();
+  ctx.fillStyle = 'rgba(214,164,94,.25)'; circ(960, 330, 150 * bk); ctx.fill();
+  bokeh(u, 7, '214,164,94', 123, bk);
+  marquee('MOCHI — DIET — RECIPE — BEAUTY — ', 1830, 70, 120, u, { fill: 'rgba(58,48,42,.75)' });
 
-  kin('もち', 540, 300, u - .12, { size: 260, mode: 'drop', color: COL.mocha, st: .08, dur: .45, shadow: 'rgba(238,140,132,.55)' });
+  kin('もち', 540, 300, u - .12, { size: 260, mode: 'drop', color: COL.mocha, st: .08, dur: .45, shadow: 'rgba(184,148,132,.35)' });
   kin('食事で2桁痩せた美容体重レシピ', 540, 500, u - .35, { size: 54, font: JP, weight: 900, color: COL.mocha, st: .015, dur: .2, mode: 'slide' });
 
   // mascot
@@ -662,7 +692,7 @@ function sEnd(u) {
     ctx.save(); ctx.translate(540, 1395); const s = E.outBack(hk, 2); ctx.scale(s, s);
     ctx.font = `900 50px ${JP}`; const tw = ctx.measureText('mochi_diet_bichou').width;
     const pw = tw + 150; ctx.fillStyle = '#fff'; rr(-pw / 2, -52, pw, 104, 52); ctx.fill();
-    const ix = -pw / 2 + 62; ctx.strokeStyle = '#D62976'; ctx.lineWidth = 6; rr(ix - 22, -22, 44, 44, 13); ctx.stroke(); circ(ix, 0, 10); ctx.stroke(); ctx.fillStyle = '#D62976'; circ(ix + 12, -12, 3.5); ctx.fill();
+    const ix = -pw / 2 + 62; ctx.strokeStyle = COL.pinkD; ctx.lineWidth = 6; rr(ix - 22, -22, 44, 44, 13); ctx.stroke(); circ(ix, 0, 10); ctx.stroke(); ctx.fillStyle = COL.pinkD; circ(ix + 12, -12, 3.5); ctx.fill();
     ctx.fillStyle = COL.mocha; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('mochi_diet_bichou', ix + 42, 3);
     ctx.restore();
   }
@@ -672,11 +702,11 @@ function sEnd(u) {
     const tapped = u > tapT, press = u > tapT - .05 && u < tapT + .12 ? .92 : 1;
     ctx.save(); ctx.translate(540, 1570); const s = E.outBack(fk, 2) * press * (tapped ? 1 + .08 * osc(u - tapT - .12, 3, 8) : 1); ctx.scale(s, s);
     ctx.fillStyle = 'rgba(74,51,38,.15)'; rr(-280, -64, 560, 140, 40); ctx.fill();
-    ctx.fillStyle = tapped ? '#EFEAE4' : COL.ig; rr(-280, -72, 560, 140, 40); ctx.fill();
+    ctx.fillStyle = tapped ? '#E6DDD2' : COL.ig; rr(-280, -72, 560, 140, 40); ctx.fill();
     txt(tapped ? 'フォロー中 ✓' : 'フォロー', 0, 0, 60, { font: JP, weight: 900, color: tapped ? COL.mocha : '#fff' });
     ctx.restore();
     if (tapped) {
-      const rk = P(u, tapT, tapT + .5); ctx.strokeStyle = `rgba(79,91,213,${1 - rk})`; ctx.lineWidth = 10 * (1 - rk) + 1; rr(540 - 280 - rk * 90, 1570 - 72 - rk * 60, 560 + rk * 180, 140 + rk * 120, 40 + rk * 40); ctx.stroke();
+      const rk = P(u, tapT, tapT + .5); ctx.strokeStyle = `rgba(58,48,42,${1 - rk})`; ctx.lineWidth = 10 * (1 - rk) + 1; rr(540 - 280 - rk * 90, 1570 - 72 - rk * 60, 560 + rk * 180, 140 + rk * 120, 40 + rk * 40); ctx.stroke();
     }
   }
   // finger tap indicator
@@ -690,7 +720,7 @@ function sEnd(u) {
   }
   // confetti
   if (u > tapT) {
-    const tt = u - tapT, cs = [COL.pinkD, COL.yolk, COL.sage, COL.ig, '#fff', '#E1306C'];
+    const tt = u - tapT, cs = [COL.pinkD, COL.yolk, COL.sage, COL.mocha, '#fff', '#D9C7BA'];
     for (let i = 0; i < 60; i++) {
       const a = -PI / 2 + (hs(i + 900) - .5) * 2.6, sp = 900 + hs(i + 910) * 1300;
       const x = 540 + Math.cos(a) * sp * tt, y = 1560 + Math.sin(a) * sp * tt + 1900 * tt * tt;
@@ -706,7 +736,7 @@ function sEnd(u) {
    ========================================================= */
 const SHOTS = [
   { s: 0, d: u => sIntro(u) },
-  { s: 2.5, d: u => sScale(u), tr: { type: 'iris', dur: .32, x: 540, y: 1000, col: COL.pinkD } },
+  { s: 2.5, d: u => sScale(u), tr: { type: 'iris', dur: .32, x: 540, y: 1000, col: COL.yolk } },
 ];
 for (let i = 0; i < 7; i++) SHOTS.push({ s: 4.5 + i * .5, d: u => sRecipe(i, u), tr: { type: 'whip', dur: .16, dir: i % 2 ? -1 : 1, axis: i === 0 ? 'y' : 'x' } });
 SHOTS.push({ s: 8.0, d: u => sGrid(u), tr: { type: 'slats', dur: .34 } });
@@ -736,7 +766,7 @@ function drawTransition(tr, k, A, B) {
     ctx.bezierCurveTo(540 - w / 2, top + 50, 540 - w * .3, top, 540, top);
     ctx.bezierCurveTo(540 + w * .3, top, 540 + w / 2, top + 50, 540 + w / 2, top + 600);
     ctx.lineTo(540 + w / 2, H + 400); ctx.closePath();
-    ctx.fillStyle = '#FFFDF8'; ctx.fill(); ctx.lineWidth = 10; ctx.strokeStyle = COL.pink; ctx.stroke();
+    ctx.fillStyle = '#FFFDF8'; ctx.fill(); ctx.lineWidth = 10; ctx.strokeStyle = COL.greige; ctx.stroke();
     ctx.clip(); ctx.globalAlpha = E.outC(P(k, .35, 1)); B(); ctx.restore();
   }
 }
@@ -753,6 +783,7 @@ function render(t) {
     const pv = SHOTS[i - 1];
     drawTransition(tr, (t - sh.s) / tr.dur, () => pv.d(t - pv.s), () => sh.d(t - sh.s));
   } else sh.d(t - sh.s);
+  for (let j = 1; j < SHOTS.length; j++) leak((t - SHOTS[j].s + .08) / .42, j);
   hud(t);
 }
 function hud(t) {
@@ -779,7 +810,13 @@ window.drawFrame = (t, samples = 1, shutter = 1 / 60) => {
 window.ready = (async () => {
   TILES = await Promise.all(Array.from({ length: 25 }, (_, i) => new Promise(r => {
     const im = new Image(); im.onload = () => r(im); im.onerror = () => r(null); im.src = `tiles/t${String(i).padStart(2, '0')}.jpg`;
-  }))).then(a => a.filter(Boolean));
+  })));
+  BLUR = REC.map(d => {
+    const im = TILES[d.img]; if (!im) return null;
+    const c = document.createElement('canvas'); c.width = 540; c.height = 960; const x = c.getContext('2d');
+    x.filter = 'blur(16px) saturate(0.85)'; x.drawImage(im, -130, -40, 800, 1040); return c;
+  });
+  TILES = TILES.filter(Boolean);
   await Promise.all([`${DELA}`, `900 10px ${JP}`, `700 10px ${JP}`, `italic 900 10px ${SERIF}`].map(f => document.fonts.load(f.includes('px') ? f : `10px ${f}`, 'あ1A')));
   await document.fonts.ready;
   return true;
